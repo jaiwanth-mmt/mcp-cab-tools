@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Default fallback cabs for any route
+
 DEFAULT_CABS = [
     {"cab_type": "mini", "price": 300},
     {"cab_type": "sedan", "price": 500},

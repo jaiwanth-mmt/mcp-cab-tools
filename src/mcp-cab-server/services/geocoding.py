@@ -4,22 +4,20 @@ from typing import Optional
 import httpx
 from dotenv import load_dotenv
 
-# Load environment variables first
+
 load_dotenv()
 
 from models.models import LocationOption, ResolvedLocation
 
 logger = logging.getLogger(__name__)
 
-# Get Google Places API key from environment
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
 
 if not GOOGLE_PLACES_API_KEY:
     logger.error("⚠️  GOOGLE_PLACES_API_KEY not found in environment variables")
     logger.error("⚠️  Please add your API key to the .env file")
     logger.error("⚠️  The server will not be able to fetch real location data")
-    # Don't raise error, allow server to start but log warning
-    # raise ValueError("GOOGLE_PLACES_API_KEY must be set in .env file")
+   
 
 # Google Places API endpoints
 PLACES_AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
@@ -64,11 +62,10 @@ async def geocode_location(query: str) -> list[LocationOption]:
         predictions = data.get("predictions", [])
         logger.info(f"Found {len(predictions)} location suggestions for query: '{query}'")
         
-        # Convert predictions to LocationOption objects
+        
         location_options = []
         for prediction in predictions:
-            # For autocomplete, we don't have coordinates yet
-            # We'll get them when user selects a place via resolve_location_by_place_id
+            
             location_option = LocationOption(
                 place_id=prediction["place_id"],
                 formatted_address=prediction["description"],
