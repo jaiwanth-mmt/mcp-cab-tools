@@ -1,3 +1,4 @@
+from email import message
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -15,65 +16,96 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP("cab-server")
 
+
+
+async def get_location_with_disambiguation(
+    ctx: Context, 
+    location_query: str, 
+    location_type: str
+) -> tuple:
+    """
+    Geocode a location and handle disambiguation with recursive refinement.
+    """
+    logger.info(f"📍 Geocoding {location_type} location: {location_query}")
+    results = await geocode_location(location_query)
+    
+    if not results:
+        return None, f"No locations found for {location_type}: {location_query}"
+    
+   
+    if len(results) == 1:
+        loc = results[0]
+        location = await resolve_location_by_place_id(loc.place_id)
+        logger.info(f"✅ Single {location_type} location found: {location.name}")
+        return location, None
+    
+    
+    logger.info(f"Multiple {location_type} locations detected ({len(results)}), requesting user selection")
+    
+    
+    options_dict = {
+        loc.place_id: {
+            "title": f"{loc.name} - {loc.formatted_address}"
+        }
+        for loc in results
+    }
+    
+    options_dict["__CUSTOM__"] = {
+        "title": f"🔄 None of these - let me specify a different location"
+    }
+    
+    response = await ctx.elicit(
+        message=f"🚕 Found {len(results)} locations for '{location_query}'. Please select the {location_type} location:",
+        response_type=options_dict
+    )
+    
+    place_id = response.data
+    
+    if not place_id:
+        return None, f"No {location_type} location selected"
+    
+    
+    if place_id == "__CUSTOM__":
+        logger.info(f"User requested custom {location_type} location")
+        custom_response = await ctx.elicit(
+            message=f"📍 Please enter a more specific {location_type} location:\n💡 Tip: Include area, landmark, or sector (e.g., 'Mumbai Airport Terminal 2', 'Noida Sector 62', 'Whitefield ITPL')",
+            response_type=str
+        )
+        custom_location_query = custom_response.data
+        
+        if not custom_location_query:
+            return None, f"No custom {location_type} location provided"
+        
+        
+        logger.info(f"🔍 Re-geocoding with user-specified location: {custom_location_query}")
+        return await get_location_with_disambiguation(
+            ctx, 
+            custom_location_query,
+            location_type
+        )
+    
+   
+    location = await resolve_location_by_place_id(place_id)
+    logger.info(f"✅ User selected {location_type}: {location.name}")
+    return location, None
+
+
+
 @mcp.tool(name="Search_cabs" , description="Cabs to search")
 async def search_cabs(ctx:Context , input: SearchRequest)->SearchResponse:
     logger.info(f"🔍 Cab search request - Pickup: {input.pickup}, Drop: {input.drop}")
-    
-    
-    logger.info(f"📍 Geocoding pickup location: {input.pickup}")
-    pickup_results = await geocode_location(input.pickup)
-    if not pickup_results:
-        return SearchRequest(cabs = [] , message="No cabs for this pickup location")
-    if len(pickup_results) > 1:
-        logger.info(f"Multiple Pickup locations detected {len(pickup_results)}, requesting user selection")
-        options_dict = {
-            loc.place_id: {
-                "title":f"{loc.name} - {loc.formatted_address}"
-            }
-            for loc in pickup_results
-        }
-        
-        response = await ctx.elicit(
-            message=f"🚕 Found {len(pickup_results)} locations for '{input.pickup}'. Please select the pickup location:",
-            response_type=options_dict
-        )
-        place_id = response.data
-        if place_id:
-            pickup_location = await resolve_location_by_place_id(place_id)
-        else:
-            return SearchRequest(cabs = [] , message="No pickup location selected")
-    else:
-        loc = pickup_results[0]
-        pickup_location = await resolve_location_by_place_id(loc.place_id)
-        logger.info(f"✅ Single pickup location found: {pickup_location.name}")
-    
-    logger.info(f"📍 Geocoding drop location: {input.drop}")
-    drop_results = await geocode_location(input.drop)
-    if len(drop_results) > 1:
-        logger.info(f"Multiple Drop locations detected {len(drop_results)}, requesting user selection")
-        options_dict = {
-            loc.place_id: {
-                "title":f"{loc.name} - {loc.formatted_address}"
-            }
-            for loc in drop_results
-        }
-        response = await ctx.elicit(
-            message=f"🚕 Found {len(drop_results)} locations for '{input.drop}'. Please select the drop location:",
-            response_type=options_dict
-        )
-
-        place_id = response.data
-        if place_id:
-            drop_location = await resolve_location_by_place_id(place_id)
-        else:
-            return SearchRequest(cabs = [] , message="No drop location selected")
-    else:
-        loc = drop_results[0]
-        drop_location = await resolve_location_by_place_id(loc.place_id)
-        logger.info(f"✅ Single drop location found: {drop_location.name}")
-    
-    available_cabs = get_available_cabs(pickup_location.name.lower() , drop_location.name.lower())
+    pickup_location , pickup_error = await get_location_with_disambiguation(ctx , input.pickup , "pickup")
+    if pickup_error:
+        return SearchResponse(cabs = [])
+    drop_location , drop_error = await get_location_with_disambiguation(ctx , input.drop , "drop")
+    if drop_error:
+        return SearchResponse(cabs = [])
+    logger.info(f"✅ Locations resolved - Pickup: {pickup_location.name}, Drop: {drop_location.name}")
+    available_cabs = get_available_cabs(pickup_location.name.lower(), drop_location.name.lower())
     return available_cabs
+
+
+    
 
 
   
