@@ -34,6 +34,12 @@ class SearchRequest(BaseModel):
         raise ValueError(
             "departure_date must be in dd-MM-yyyy or yyyy-MM-dd format"
         )
+    @field_validator("departure_date")
+    @classmethod
+    def validate_future_date(cls, v):
+        if v < date.today():
+            raise ValueError("departure_date must be today or a future date")
+        return v
 
     @field_validator("pickup", "drop")
     @classmethod
@@ -63,7 +69,7 @@ class ResolvedLocation(BaseModel):
     formatted_address: str
     name: str
     lat: float
-    long: float
+    lng: float
 
 class BookingStatus(str , Enum):
     HELD = "held"
@@ -112,3 +118,61 @@ class HoldCabResponse(BaseModel):
     departure_date: str = Field(description="Journey date (ISO 8601 format)")
     created_at: str = Field(description="Hold creation time (ISO 8601 format)")
 
+class PassengerDetailsRequest(BaseModel):
+    hold_id: str = Field(..., description="Hold ID from hold_cab_booking")
+    passenger_name: str = Field(..., min_length=2, max_length=100, description="Full name of passenger")
+    passenger_phone: str = Field(..., description="Contact phone number")
+    passenger_email: Optional[str] = Field(None, description="Email address (optional)")
+    special_requests: Optional[str] = Field(None, max_length=500, description="Any special requirements")
+
+    @field_validator("passenger_phone")
+    @classmethod
+    def validate_phone(cls, v: str):
+        # Remove spaces and dashes
+        phone = v.replace(" ", "").replace("-", "")
+        
+        
+        patterns = [
+            r'^\+91[6-9]\d{9}$',  # +91 followed by 10 digits
+            r'^91[6-9]\d{9}$',     # 91 followed by 10 digits
+            r'^[6-9]\d{9}$'        # 10 digits starting with 6-9
+        ]
+        
+        if not any(re.match(pattern, phone) for pattern in patterns):
+            raise ValueError(
+                "Invalid phone number. Use format: +91-XXXXXXXXXX, 91XXXXXXXXXX, or XXXXXXXXXX (10 digits)"
+            )
+        
+        # Normalize to +91-XXXXXXXXXX format
+        if phone.startswith('+91'):
+            return phone
+        elif phone.startswith('91'):
+            return f"+{phone}"
+        else:
+            return f"+91{phone}"
+    
+    @field_validator("passenger_email")
+    @classmethod
+    def validate_email(cls, v: Optional[str]):
+        if v is None or v.strip() == "":
+            return None
+        
+        # Basic email validation
+        email = v.strip().lower()
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        
+        if not re.match(email_pattern, email):
+            raise ValueError("Invalid email format")
+        
+        return email
+
+class PassengerDetailsResponse(BaseModel):
+    hold_id: str = Field(description="Hold ID")
+    status: BookingStatus = Field(description="Updated booking status")
+    passenger_name: str = Field(description="Passenger name")
+    passenger_phone: str = Field(description="Passenger phone")
+    passenger_email: Optional[str] = Field(description="Passenger email")
+    special_requests: Optional[str] = Field(description="Special requests")
+    ready_for_payment: bool = Field(description="Whether ready to proceed to payment")
+    expires_at: str = Field(description="Hold expiration time")
+    booking_summary: dict = Field(description="Complete booking details so far")

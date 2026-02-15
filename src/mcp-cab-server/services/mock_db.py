@@ -402,10 +402,10 @@ def create_booking_hold(cab_id:str , pickup:str , drop:str , departure_date:date
         'price': cab_details['price'],
         'pickup_location': pickup,
         'drop_location': drop,
-        'departure_date': departure_date.isoformat() if isinstance(departure_date, date) else str(departure_date),
-        'created_at': current_time.isoformat(),
-        'expires_at': expiry_time.isoformat(),
-        'updated_at': current_time.isoformat()
+        'departure_date': departure_date,
+        'created_at': current_time,
+        'expires_at': expiry_time,
+        'updated_at': current_time
     }
     BOOKING_HOLDS[hold_id] = hold_data
     return hold_data
@@ -432,3 +432,40 @@ def cleanup_expired_holds():
     return expired_count
 
 
+PASSENGER_DATA = {}
+def add_passenger_to_hold(hold_id: str , passenger_details: dict)->dict:
+    hold = get_booking_hold(hold_id)
+    if not hold:
+        raise ValueError(f"Hold not found: {hold_id}")
+    current_time = datetime.now()
+    if hold['expires_at'] < current_time:
+        BOOKING_HOLDS[hold_id]['status'] = 'expired'
+        raise ValueError(f"Hold has expired at {hold['expires_at'].isoformat()}")
+    
+    
+    if hold['status'] not in ['held', 'passenger_added']:
+        raise ValueError(f"Hold is in invalid state: {hold['status']}")
+    
+    # Store passenger data
+    PASSENGER_DATA[hold_id] = {
+        'passenger_name': passenger_details['passenger_name'],
+        'passenger_phone': passenger_details['passenger_phone'],
+        'passenger_email': passenger_details.get('passenger_email'),
+        'special_requests': passenger_details.get('special_requests'),
+        'added_at': datetime.now()
+    }
+    
+    # Update hold status
+    BOOKING_HOLDS[hold_id]['status'] = 'passenger_added'
+    BOOKING_HOLDS[hold_id]['updated_at'] = datetime.now()
+    BOOKING_HOLDS[hold_id]['passenger_details'] = PASSENGER_DATA[hold_id]
+    
+    return BOOKING_HOLDS[hold_id]
+
+def get_passenger_details(hold_id: str) -> dict:
+    
+    return PASSENGER_DATA.get(hold_id)
+
+def has_passenger_details(hold_id: str) -> bool:
+    
+    return hold_id in PASSENGER_DATA
