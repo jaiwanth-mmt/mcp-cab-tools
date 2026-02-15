@@ -1,12 +1,12 @@
-from email import message
-import os
 from dotenv import load_dotenv
 load_dotenv()
 from fastmcp import FastMCP , Context
-from models.models import  SearchRequest, SearchResponse 
+from models.models import  SearchRequest, SearchResponse , HoldCabRequest , HoldCabResponse
 import logging
 from services.helper import get_available_cabs
 from services.geocoding import geocode_location , resolve_location_by_place_id
+from services.helper import hold_cab
+from datetime import datetime , date
 
 # Load environment variables from .env file
 
@@ -105,11 +105,34 @@ async def search_cabs(ctx:Context , input: SearchRequest)->SearchResponse:
     return available_cabs
 
 
-    
-
-
-  
-
+@mcp.tool(name="hold_cab_booking" ,description="Create temporary cab reservation with 15-minute hold")
+async def hold_cab_booking(ctx:Context , input: HoldCabRequest )->HoldCabResponse:
+    logger.info(f"🔒 Hold cab request - Cab ID: {input.cab_id}, Date: {input.departure_date}")
+    try:
+        # Create the hold
+        hold_response = hold_cab(
+            cab_id=input.cab_id,
+            pickup=input.pickup,
+            drop=input.drop,
+            departure_date=input.departure_date.isoformat() if isinstance(input.departure_date, date) else input.departure_date
+        )
+        
+        logger.info(f"✅ Hold created successfully: {hold_response.hold_id}")
+        await ctx.info(
+            f"🎉 Cab Reserved!\n\n"
+            f"Hold ID: {hold_response.hold_id}\n"
+            f"Cab Type: {hold_response.cab_details['cab_type']}\n"
+            f"Price: ₹{hold_response.price}\n"
+            f"Valid until: {datetime.fromisoformat(hold_response.expires_at).strftime('%I:%M %p')}\n"
+            f"⏰ Please complete passenger details and payment within 15 minutes."
+        )
+        return hold_response
+    except ValueError as e:
+        logger.error(f"❌ Hold creation failed: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"❌ Unexpected error during hold creation: {str(e)}")
+        raise ValueError(f"Failed to create hold: {str(e)}")
 
 
 if __name__ == "__main__":
