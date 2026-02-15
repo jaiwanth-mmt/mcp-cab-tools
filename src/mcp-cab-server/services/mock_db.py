@@ -1,406 +1,434 @@
 MOCK_CAB_DB = {
     # ============== DELHI ROUTES ==============
-    
-    # Delhi Airport - High Traffic Routes
     ("igi airport", "connaught place"): [
-        {"cab_type": "mini", "price": 450},
-        {"cab_type": "sedan", "price": 650},
-        {"cab_type": "suv", "price": 900},
+        {"cab_id": "DEL_IGI_CP_1", "cab_type": "mini", "price": 450},
+        {"cab_id": "DEL_IGI_CP_2", "cab_type": "sedan", "price": 650},
+        {"cab_id": "DEL_IGI_CP_3", "cab_type": "suv", "price": 900},
     ],
     ("delhi airport", "connaught place"): [
-        {"cab_type": "mini", "price": 450},
-        {"cab_type": "sedan", "price": 650},
-        {"cab_type": "suv", "price": 900},
+        {"cab_id": "DEL_AP_CP_1", "cab_type": "mini", "price": 450},
+        {"cab_id": "DEL_AP_CP_2", "cab_type": "sedan", "price": 650},
+        {"cab_id": "DEL_AP_CP_3", "cab_type": "suv", "price": 900},
     ],
     ("connaught place", "delhi airport"): [
-        {"cab_type": "mini", "price": 450},
-        {"cab_type": "sedan", "price": 650},
-        {"cab_type": "suv", "price": 900},
+        {"cab_id": "CP_DEL_AP_1", "cab_type": "mini", "price": 450},
+        {"cab_id": "CP_DEL_AP_2", "cab_type": "sedan", "price": 650},
+        {"cab_id": "CP_DEL_AP_3", "cab_type": "suv", "price": 900},
     ],
-    
     ("igi airport", "gurgaon"): [
-        {"cab_type": "mini", "price": 600},
-        {"cab_type": "sedan", "price": 850},
-        {"cab_type": "suv", "price": 1200},
+        {"cab_id": "DEL_IGI_GUR_1", "cab_type": "mini", "price": 600},
+        {"cab_id": "DEL_IGI_GUR_2", "cab_type": "sedan", "price": 850},
+        {"cab_id": "DEL_IGI_GUR_3", "cab_type": "suv", "price": 1200},
     ],
     ("delhi airport", "cyber city"): [
-        {"cab_type": "mini", "price": 600},
-        {"cab_type": "sedan", "price": 850},
-        {"cab_type": "suv", "price": 1200},
+        {"cab_id": "DEL_AP_CYB_1", "cab_type": "mini", "price": 600},
+        {"cab_id": "DEL_AP_CYB_2", "cab_type": "sedan", "price": 850},
+        {"cab_id": "DEL_AP_CYB_3", "cab_type": "suv", "price": 1200},
     ],
     ("gurgaon", "delhi airport"): [
-        {"cab_type": "mini", "price": 600},
-        {"cab_type": "sedan", "price": 850},
-        {"cab_type": "suv", "price": 1200},
+        {"cab_id": "GUR_DEL_AP_1", "cab_type": "mini", "price": 600},
+        {"cab_id": "GUR_DEL_AP_2", "cab_type": "sedan", "price": 850},
+        {"cab_id": "GUR_DEL_AP_3", "cab_type": "suv", "price": 1200},
     ],
-    
     ("igi airport", "noida"): [
-        {"cab_type": "mini", "price": 700},
-        {"cab_type": "sedan", "price": 950},
-        {"cab_type": "suv", "price": 1300},
+        {"cab_id": "DEL_IGI_NOI_1", "cab_type": "mini", "price": 700},
+        {"cab_id": "DEL_IGI_NOI_2", "cab_type": "sedan", "price": 950},
+        {"cab_id": "DEL_IGI_NOI_3", "cab_type": "suv", "price": 1300},
     ],
     ("delhi airport", "noida sector 62"): [
-        {"cab_type": "mini", "price": 700},
-        {"cab_type": "sedan", "price": 950},
-        {"cab_type": "suv", "price": 1300},
+        {"cab_id": "DEL_AP_NOI62_1", "cab_type": "mini", "price": 700},
+        {"cab_id": "DEL_AP_NOI62_2", "cab_type": "sedan", "price": 950},
+        {"cab_id": "DEL_AP_NOI62_3", "cab_type": "suv", "price": 1300},
     ],
     ("noida", "delhi airport"): [
-        {"cab_type": "mini", "price": 700},
-        {"cab_type": "sedan", "price": 950},
-        {"cab_type": "suv", "price": 1300},
+        {"cab_id": "NOI_DEL_AP_1", "cab_type": "mini", "price": 700},
+        {"cab_id": "NOI_DEL_AP_2", "cab_type": "sedan", "price": 950},
+        {"cab_id": "NOI_DEL_AP_3", "cab_type": "suv", "price": 1300},
     ],
-    
     ("igi airport", "new delhi railway station"): [
-        {"cab_type": "mini", "price": 500},
-        {"cab_type": "sedan", "price": 700},
-        {"cab_type": "suv", "price": 950},
+        {"cab_id": "DEL_IGI_NDLS_1", "cab_type": "mini", "price": 500},
+        {"cab_id": "DEL_IGI_NDLS_2", "cab_type": "sedan", "price": 700},
+        {"cab_id": "DEL_IGI_NDLS_3", "cab_type": "suv", "price": 950},
     ],
     ("delhi airport", "railway station"): [
-        {"cab_type": "mini", "price": 500},
-        {"cab_type": "sedan", "price": 700},
-        {"cab_type": "suv", "price": 950},
+        {"cab_id": "DEL_AP_RS_1", "cab_type": "mini", "price": 500},
+        {"cab_id": "DEL_AP_RS_2", "cab_type": "sedan", "price": 700},
+        {"cab_id": "DEL_AP_RS_3", "cab_type": "suv", "price": 950},
     ],
-    
-    # Delhi Railway Station Routes
     ("new delhi railway station", "connaught place"): [
-        {"cab_type": "auto", "price": 150},
-        {"cab_type": "mini", "price": 250},
-        {"cab_type": "sedan", "price": 400},
+        {"cab_id": "NDLS_CP_1", "cab_type": "auto", "price": 150},
+        {"cab_id": "NDLS_CP_2", "cab_type": "mini", "price": 250},
+        {"cab_id": "NDLS_CP_3", "cab_type": "sedan", "price": 400},
     ],
-    
-    # Delhi Intra-city
     ("connaught place", "gurgaon"): [
-        {"cab_type": "mini", "price": 500},
-        {"cab_type": "sedan", "price": 700},
-        {"cab_type": "suv", "price": 1000},
+        {"cab_id": "CP_GUR_1", "cab_type": "mini", "price": 500},
+        {"cab_id": "CP_GUR_2", "cab_type": "sedan", "price": 700},
+        {"cab_id": "CP_GUR_3", "cab_type": "suv", "price": 1000},
     ],
     ("delhi", "noida"): [
-        {"cab_type": "mini", "price": 450},
-        {"cab_type": "sedan", "price": 650},
-        {"cab_type": "suv", "price": 900},
+        {"cab_id": "DEL_NOI_1", "cab_type": "mini", "price": 450},
+        {"cab_id": "DEL_NOI_2", "cab_type": "sedan", "price": 650},
+        {"cab_id": "DEL_NOI_3", "cab_type": "suv", "price": 900},
     ],
     ("delhi", "delhi"): [
-        {"cab_type": "auto", "price": 180},
-        {"cab_type": "mini", "price": 300},
-        {"cab_type": "sedan", "price": 500},
+        {"cab_id": "DEL_INTRA_1", "cab_type": "auto", "price": 180},
+        {"cab_id": "DEL_INTRA_2", "cab_type": "mini", "price": 300},
+        {"cab_id": "DEL_INTRA_3", "cab_type": "sedan", "price": 500},
     ],
-    
+
     # ============== BANGALORE ROUTES ==============
-    
-    # Bangalore Airport - High Traffic Routes
     ("kempegowda airport", "electronic city"): [
-        {"cab_type": "mini", "price": 800},
-        {"cab_type": "sedan", "price": 1100},
-        {"cab_type": "suv", "price": 1500},
+        {"cab_id": "BLR_KEM_EC_1", "cab_type": "mini", "price": 800},
+        {"cab_id": "BLR_KEM_EC_2", "cab_type": "sedan", "price": 1100},
+        {"cab_id": "BLR_KEM_EC_3", "cab_type": "suv", "price": 1500},
     ],
     ("bangalore airport", "electronic city"): [
-        {"cab_type": "mini", "price": 800},
-        {"cab_type": "sedan", "price": 1100},
-        {"cab_type": "suv", "price": 1500},
+        {"cab_id": "BLR_AP_EC_1", "cab_type": "mini", "price": 800},
+        {"cab_id": "BLR_AP_EC_2", "cab_type": "sedan", "price": 1100},
+        {"cab_id": "BLR_AP_EC_3", "cab_type": "suv", "price": 1500},
     ],
     ("electronic city", "bangalore airport"): [
-        {"cab_type": "mini", "price": 800},
-        {"cab_type": "sedan", "price": 1100},
-        {"cab_type": "suv", "price": 1500},
+        {"cab_id": "EC_BLR_AP_1", "cab_type": "mini", "price": 800},
+        {"cab_id": "EC_BLR_AP_2", "cab_type": "sedan", "price": 1100},
+        {"cab_id": "EC_BLR_AP_3", "cab_type": "suv", "price": 1500},
     ],
-    
     ("kempegowda airport", "whitefield"): [
-        {"cab_type": "mini", "price": 650},
-        {"cab_type": "sedan", "price": 900},
-        {"cab_type": "suv", "price": 1250},
+        {"cab_id": "BLR_KEM_WF_1", "cab_type": "mini", "price": 650},
+        {"cab_id": "BLR_KEM_WF_2", "cab_type": "sedan", "price": 900},
+        {"cab_id": "BLR_KEM_WF_3", "cab_type": "suv", "price": 1250},
     ],
     ("bangalore airport", "itpl"): [
-        {"cab_type": "mini", "price": 650},
-        {"cab_type": "sedan", "price": 900},
-        {"cab_type": "suv", "price": 1250},
+        {"cab_id": "BLR_AP_ITPL_1", "cab_type": "mini", "price": 650},
+        {"cab_id": "BLR_AP_ITPL_2", "cab_type": "sedan", "price": 900},
+        {"cab_id": "BLR_AP_ITPL_3", "cab_type": "suv", "price": 1250},
     ],
     ("whitefield", "bangalore airport"): [
-        {"cab_type": "mini", "price": 650},
-        {"cab_type": "sedan", "price": 900},
-        {"cab_type": "suv", "price": 1250},
+        {"cab_id": "WF_BLR_AP_1", "cab_type": "mini", "price": 650},
+        {"cab_id": "WF_BLR_AP_2", "cab_type": "sedan", "price": 900},
+        {"cab_id": "WF_BLR_AP_3", "cab_type": "suv", "price": 1250},
     ],
-    
     ("kempegowda airport", "koramangala"): [
-        {"cab_type": "mini", "price": 750},
-        {"cab_type": "sedan", "price": 1000},
-        {"cab_type": "suv", "price": 1400},
+        {"cab_id": "BLR_KEM_KOR_1", "cab_type": "mini", "price": 750},
+        {"cab_id": "BLR_KEM_KOR_2", "cab_type": "sedan", "price": 1000},
+        {"cab_id": "BLR_KEM_KOR_3", "cab_type": "suv", "price": 1400},
     ],
     ("bangalore airport", "koramangala"): [
-        {"cab_type": "mini", "price": 750},
-        {"cab_type": "sedan", "price": 1000},
-        {"cab_type": "suv", "price": 1400},
+        {"cab_id": "BLR_AP_KOR_1", "cab_type": "mini", "price": 750},
+        {"cab_id": "BLR_AP_KOR_2", "cab_type": "sedan", "price": 1000},
+        {"cab_id": "BLR_AP_KOR_3", "cab_type": "suv", "price": 1400},
     ],
     ("koramangala", "bangalore airport"): [
-        {"cab_type": "mini", "price": 750},
-        {"cab_type": "sedan", "price": 1000},
-        {"cab_type": "suv", "price": 1400},
+        {"cab_id": "KOR_BLR_AP_1", "cab_type": "mini", "price": 750},
+        {"cab_id": "KOR_BLR_AP_2", "cab_type": "sedan", "price": 1000},
+        {"cab_id": "KOR_BLR_AP_3", "cab_type": "suv", "price": 1400},
     ],
-    
     ("kempegowda airport", "mg road"): [
-        {"cab_type": "mini", "price": 700},
-        {"cab_type": "sedan", "price": 950},
-        {"cab_type": "suv", "price": 1300},
+        {"cab_id": "BLR_KEM_MG_1", "cab_type": "mini", "price": 700},
+        {"cab_id": "BLR_KEM_MG_2", "cab_type": "sedan", "price": 950},
+        {"cab_id": "BLR_KEM_MG_3", "cab_type": "suv", "price": 1300},
     ],
     ("bangalore airport", "indiranagar"): [
-        {"cab_type": "mini", "price": 700},
-        {"cab_type": "sedan", "price": 950},
-        {"cab_type": "suv", "price": 1300},
+        {"cab_id": "BLR_AP_IND_1", "cab_type": "mini", "price": 700},
+        {"cab_id": "BLR_AP_IND_2", "cab_type": "sedan", "price": 950},
+        {"cab_id": "BLR_AP_IND_3", "cab_type": "suv", "price": 1300},
     ],
-    
-    # Bangalore Railway Station Routes
     ("bangalore city railway station", "electronic city"): [
-        {"cab_type": "mini", "price": 500},
-        {"cab_type": "sedan", "price": 700},
-        {"cab_type": "suv", "price": 950},
+        {"cab_id": "BLR_RS_EC_1", "cab_type": "mini", "price": 500},
+        {"cab_id": "BLR_RS_EC_2", "cab_type": "sedan", "price": 700},
+        {"cab_id": "BLR_RS_EC_3", "cab_type": "suv", "price": 950},
     ],
-    
-    # Bangalore Intra-city
     ("electronic city", "whitefield"): [
-        {"cab_type": "mini", "price": 600},
-        {"cab_type": "sedan", "price": 850},
-        {"cab_type": "suv", "price": 1150},
+        {"cab_id": "EC_WF_1", "cab_type": "mini", "price": 600},
+        {"cab_id": "EC_WF_2", "cab_type": "sedan", "price": 850},
+        {"cab_id": "EC_WF_3", "cab_type": "suv", "price": 1150},
     ],
     ("koramangala", "indiranagar"): [
-        {"cab_type": "auto", "price": 120},
-        {"cab_type": "mini", "price": 250},
-        {"cab_type": "sedan", "price": 400},
+        {"cab_id": "KOR_IND_1", "cab_type": "auto", "price": 120},
+        {"cab_id": "KOR_IND_2", "cab_type": "mini", "price": 250},
+        {"cab_id": "KOR_IND_3", "cab_type": "sedan", "price": 400},
     ],
     ("bangalore", "bangalore"): [
-        {"cab_type": "auto", "price": 150},
-        {"cab_type": "mini", "price": 280},
-        {"cab_type": "sedan", "price": 450},
+        {"cab_id": "BLR_INTRA_1", "cab_type": "auto", "price": 150},
+        {"cab_id": "BLR_INTRA_2", "cab_type": "mini", "price": 280},
+        {"cab_id": "BLR_INTRA_3", "cab_type": "sedan", "price": 450},
     ],
-    
+
     # ============== KOLKATA ROUTES ==============
-    
-    # Kolkata Airport - High Traffic Routes
     ("netaji subhas airport", "salt lake sector v"): [
-        {"cab_type": "mini", "price": 350},
-        {"cab_type": "sedan", "price": 500},
-        {"cab_type": "suv", "price": 700},
+        {"cab_id": "CCU_NS_SL5_1", "cab_type": "mini", "price": 350},
+        {"cab_id": "CCU_NS_SL5_2", "cab_type": "sedan", "price": 500},
+        {"cab_id": "CCU_NS_SL5_3", "cab_type": "suv", "price": 700},
     ],
     ("kolkata airport", "salt lake"): [
-        {"cab_type": "mini", "price": 350},
-        {"cab_type": "sedan", "price": 500},
-        {"cab_type": "suv", "price": 700},
+        {"cab_id": "CCU_AP_SL_1", "cab_type": "mini", "price": 350},
+        {"cab_id": "CCU_AP_SL_2", "cab_type": "sedan", "price": 500},
+        {"cab_id": "CCU_AP_SL_3", "cab_type": "suv", "price": 700},
     ],
     ("salt lake", "kolkata airport"): [
-        {"cab_type": "mini", "price": 350},
-        {"cab_type": "sedan", "price": 500},
-        {"cab_type": "suv", "price": 700},
+        {"cab_id": "SL_CCU_AP_1", "cab_type": "mini", "price": 350},
+        {"cab_id": "SL_CCU_AP_2", "cab_type": "sedan", "price": 500},
+        {"cab_id": "SL_CCU_AP_3", "cab_type": "suv", "price": 700},
     ],
-    
     ("netaji subhas airport", "park street"): [
-        {"cab_type": "mini", "price": 400},
-        {"cab_type": "sedan", "price": 550},
-        {"cab_type": "suv", "price": 750},
+        {"cab_id": "CCU_NS_PS_1", "cab_type": "mini", "price": 400},
+        {"cab_id": "CCU_NS_PS_2", "cab_type": "sedan", "price": 550},
+        {"cab_id": "CCU_NS_PS_3", "cab_type": "suv", "price": 750},
     ],
     ("kolkata airport", "park street"): [
-        {"cab_type": "mini", "price": 400},
-        {"cab_type": "sedan", "price": 550},
-        {"cab_type": "suv", "price": 750},
+        {"cab_id": "CCU_AP_PS_1", "cab_type": "mini", "price": 400},
+        {"cab_id": "CCU_AP_PS_2", "cab_type": "sedan", "price": 550},
+        {"cab_id": "CCU_AP_PS_3", "cab_type": "suv", "price": 750},
     ],
     ("park street", "kolkata airport"): [
-        {"cab_type": "mini", "price": 400},
-        {"cab_type": "sedan", "price": 550},
-        {"cab_type": "suv", "price": 750},
+        {"cab_id": "PS_CCU_AP_1", "cab_type": "mini", "price": 400},
+        {"cab_id": "PS_CCU_AP_2", "cab_type": "sedan", "price": 550},
+        {"cab_id": "PS_CCU_AP_3", "cab_type": "suv", "price": 750},
     ],
-    
     ("kolkata airport", "howrah station"): [
-        {"cab_type": "mini", "price": 450},
-        {"cab_type": "sedan", "price": 600},
-        {"cab_type": "suv", "price": 800},
+        {"cab_id": "CCU_AP_HWH_1", "cab_type": "mini", "price": 450},
+        {"cab_id": "CCU_AP_HWH_2", "cab_type": "sedan", "price": 600},
+        {"cab_id": "CCU_AP_HWH_3", "cab_type": "suv", "price": 800},
     ],
     ("howrah station", "kolkata airport"): [
-        {"cab_type": "mini", "price": 450},
-        {"cab_type": "sedan", "price": 600},
-        {"cab_type": "suv", "price": 800},
+        {"cab_id": "HWH_CCU_AP_1", "cab_type": "mini", "price": 450},
+        {"cab_id": "HWH_CCU_AP_2", "cab_type": "sedan", "price": 600},
+        {"cab_id": "HWH_CCU_AP_3", "cab_type": "suv", "price": 800},
     ],
-    
-    # Kolkata Railway Station Routes
     ("howrah station", "salt lake"): [
-        {"cab_type": "mini", "price": 350},
-        {"cab_type": "sedan", "price": 500},
-        {"cab_type": "suv", "price": 700},
+        {"cab_id": "HWH_SL_1", "cab_type": "mini", "price": 350},
+        {"cab_id": "HWH_SL_2", "cab_type": "sedan", "price": 500},
+        {"cab_id": "HWH_SL_3", "cab_type": "suv", "price": 700},
     ],
     ("sealdah station", "park street"): [
-        {"cab_type": "auto", "price": 120},
-        {"cab_type": "mini", "price": 250},
-        {"cab_type": "sedan", "price": 400},
+        {"cab_id": "SDAH_PS_1", "cab_type": "auto", "price": 120},
+        {"cab_id": "SDAH_PS_2", "cab_type": "mini", "price": 250},
+        {"cab_id": "SDAH_PS_3", "cab_type": "sedan", "price": 400},
     ],
-    
-    # Kolkata Intra-city
     ("salt lake", "park street"): [
-        {"cab_type": "mini", "price": 300},
-        {"cab_type": "sedan", "price": 450},
-        {"cab_type": "suv", "price": 650},
+        {"cab_id": "SL_PS_1", "cab_type": "mini", "price": 300},
+        {"cab_id": "SL_PS_2", "cab_type": "sedan", "price": 450},
+        {"cab_id": "SL_PS_3", "cab_type": "suv", "price": 650},
     ],
     ("kolkata", "kolkata"): [
-        {"cab_type": "auto", "price": 130},
-        {"cab_type": "mini", "price": 250},
-        {"cab_type": "sedan", "price": 400},
+        {"cab_id": "CCU_INTRA_1", "cab_type": "auto", "price": 130},
+        {"cab_id": "CCU_INTRA_2", "cab_type": "mini", "price": 250},
+        {"cab_id": "CCU_INTRA_3", "cab_type": "sedan", "price": 400},
     ],
-    
+
     # ============== HYDERABAD ROUTES ==============
-    
-    # Hyderabad Airport - High Traffic Routes
     ("rajiv gandhi airport", "hitec city"): [
-        {"cab_type": "mini", "price": 650},
-        {"cab_type": "sedan", "price": 900},
-        {"cab_type": "suv", "price": 1250},
+        {"cab_id": "HYD_RGI_HIT_1", "cab_type": "mini", "price": 650},
+        {"cab_id": "HYD_RGI_HIT_2", "cab_type": "sedan", "price": 900},
+        {"cab_id": "HYD_RGI_HIT_3", "cab_type": "suv", "price": 1250},
     ],
     ("hyderabad airport", "gachibowli"): [
-        {"cab_type": "mini", "price": 650},
-        {"cab_type": "sedan", "price": 900},
-        {"cab_type": "suv", "price": 1250},
+        {"cab_id": "HYD_AP_GAC_1", "cab_type": "mini", "price": 650},
+        {"cab_id": "HYD_AP_GAC_2", "cab_type": "sedan", "price": 900},
+        {"cab_id": "HYD_AP_GAC_3", "cab_type": "suv", "price": 1250},
     ],
     ("hitec city", "hyderabad airport"): [
-        {"cab_type": "mini", "price": 650},
-        {"cab_type": "sedan", "price": 900},
-        {"cab_type": "suv", "price": 1250},
+        {"cab_id": "HIT_HYD_AP_1", "cab_type": "mini", "price": 650},
+        {"cab_id": "HIT_HYD_AP_2", "cab_type": "sedan", "price": 900},
+        {"cab_id": "HIT_HYD_AP_3", "cab_type": "suv", "price": 1250},
     ],
     ("gachibowli", "hyderabad airport"): [
-        {"cab_type": "mini", "price": 650},
-        {"cab_type": "sedan", "price": 900},
-        {"cab_type": "suv", "price": 1250},
+        {"cab_id": "GAC_HYD_AP_1", "cab_type": "mini", "price": 650},
+        {"cab_id": "GAC_HYD_AP_2", "cab_type": "sedan", "price": 900},
+        {"cab_id": "GAC_HYD_AP_3", "cab_type": "suv", "price": 1250},
     ],
-    
     ("rajiv gandhi airport", "banjara hills"): [
-        {"cab_type": "mini", "price": 600},
-        {"cab_type": "sedan", "price": 850},
-        {"cab_type": "suv", "price": 1200},
+        {"cab_id": "HYD_RGI_BAN_1", "cab_type": "mini", "price": 600},
+        {"cab_id": "HYD_RGI_BAN_2", "cab_type": "sedan", "price": 850},
+        {"cab_id": "HYD_RGI_BAN_3", "cab_type": "suv", "price": 1200},
     ],
     ("hyderabad airport", "banjara hills"): [
-        {"cab_type": "mini", "price": 600},
-        {"cab_type": "sedan", "price": 850},
-        {"cab_type": "suv", "price": 1200},
+        {"cab_id": "HYD_AP_BAN_1", "cab_type": "mini", "price": 600},
+        {"cab_id": "HYD_AP_BAN_2", "cab_type": "sedan", "price": 850},
+        {"cab_id": "HYD_AP_BAN_3", "cab_type": "suv", "price": 1200},
     ],
     ("banjara hills", "hyderabad airport"): [
-        {"cab_type": "mini", "price": 600},
-        {"cab_type": "sedan", "price": 850},
-        {"cab_type": "suv", "price": 1200},
+        {"cab_id": "BAN_HYD_AP_1", "cab_type": "mini", "price": 600},
+        {"cab_id": "BAN_HYD_AP_2", "cab_type": "sedan", "price": 850},
+        {"cab_id": "BAN_HYD_AP_3", "cab_type": "suv", "price": 1200},
     ],
-    
     ("rajiv gandhi airport", "secunderabad station"): [
-        {"cab_type": "mini", "price": 550},
-        {"cab_type": "sedan", "price": 800},
-        {"cab_type": "suv", "price": 1100},
+        {"cab_id": "HYD_RGI_SEC_1", "cab_type": "mini", "price": 550},
+        {"cab_id": "HYD_RGI_SEC_2", "cab_type": "sedan", "price": 800},
+        {"cab_id": "HYD_RGI_SEC_3", "cab_type": "suv", "price": 1100},
     ],
     ("hyderabad airport", "secunderabad"): [
-        {"cab_type": "mini", "price": 550},
-        {"cab_type": "sedan", "price": 800},
-        {"cab_type": "suv", "price": 1100},
+        {"cab_id": "HYD_AP_SEC_1", "cab_type": "mini", "price": 550},
+        {"cab_id": "HYD_AP_SEC_2", "cab_type": "sedan", "price": 800},
+        {"cab_id": "HYD_AP_SEC_3", "cab_type": "suv", "price": 1100},
     ],
-    
     ("rajiv gandhi airport", "madhapur"): [
-        {"cab_type": "mini", "price": 650},
-        {"cab_type": "sedan", "price": 900},
-        {"cab_type": "suv", "price": 1250},
+        {"cab_id": "HYD_RGI_MAD_1", "cab_type": "mini", "price": 650},
+        {"cab_id": "HYD_RGI_MAD_2", "cab_type": "sedan", "price": 900},
+        {"cab_id": "HYD_RGI_MAD_3", "cab_type": "suv", "price": 1250},
     ],
     ("hyderabad airport", "madhapur"): [
-        {"cab_type": "mini", "price": 650},
-        {"cab_type": "sedan", "price": 900},
-        {"cab_type": "suv", "price": 1250},
+        {"cab_id": "HYD_AP_MAD_1", "cab_type": "mini", "price": 650},
+        {"cab_id": "HYD_AP_MAD_2", "cab_type": "sedan", "price": 900},
+        {"cab_id": "HYD_AP_MAD_3", "cab_type": "suv", "price": 1250},
     ],
-    
-    # Hyderabad Railway Station Routes
     ("secunderabad station", "hitec city"): [
-        {"cab_type": "mini", "price": 400},
-        {"cab_type": "sedan", "price": 600},
-        {"cab_type": "suv", "price": 850},
+        {"cab_id": "SEC_HIT_1", "cab_type": "mini", "price": 400},
+        {"cab_id": "SEC_HIT_2", "cab_type": "sedan", "price": 600},
+        {"cab_id": "SEC_HIT_3", "cab_type": "suv", "price": 850},
     ],
     ("secunderabad", "gachibowli"): [
-        {"cab_type": "mini", "price": 400},
-        {"cab_type": "sedan", "price": 600},
-        {"cab_type": "suv", "price": 850},
+        {"cab_id": "SEC_GAC_1", "cab_type": "mini", "price": 400},
+        {"cab_id": "SEC_GAC_2", "cab_type": "sedan", "price": 600},
+        {"cab_id": "SEC_GAC_3", "cab_type": "suv", "price": 850},
     ],
-    
-    # Hyderabad Intra-city
     ("hitec city", "kukatpally"): [
-        {"cab_type": "mini", "price": 350},
-        {"cab_type": "sedan", "price": 500},
-        {"cab_type": "suv", "price": 700},
+        {"cab_id": "HIT_KUK_1", "cab_type": "mini", "price": 350},
+        {"cab_id": "HIT_KUK_2", "cab_type": "sedan", "price": 500},
+        {"cab_id": "HIT_KUK_3", "cab_type": "suv", "price": 700},
     ],
     ("banjara hills", "hitec city"): [
-        {"cab_type": "mini", "price": 300},
-        {"cab_type": "sedan", "price": 450},
-        {"cab_type": "suv", "price": 650},
+        {"cab_id": "BAN_HIT_1", "cab_type": "mini", "price": 300},
+        {"cab_id": "BAN_HIT_2", "cab_type": "sedan", "price": 450},
+        {"cab_id": "BAN_HIT_3", "cab_type": "suv", "price": 650},
     ],
     ("hyderabad", "hyderabad"): [
-        {"cab_type": "auto", "price": 140},
-        {"cab_type": "mini", "price": 270},
-        {"cab_type": "sedan", "price": 450},
+        {"cab_id": "HYD_INTRA_1", "cab_type": "auto", "price": 140},
+        {"cab_id": "HYD_INTRA_2", "cab_type": "mini", "price": 270},
+        {"cab_id": "HYD_INTRA_3", "cab_type": "sedan", "price": 450},
     ],
-    
+
     # ============== INTER-CITY ROUTES ==============
-    
     ("delhi", "jaipur"): [
-        {"cab_type": "sedan", "price": 3500},
-        {"cab_type": "suv", "price": 4500},
-        {"cab_type": "prime sedan", "price": 5000},
+        {"cab_id": "INTER_DEL_JAI_1", "cab_type": "sedan", "price": 3500},
+        {"cab_id": "INTER_DEL_JAI_2", "cab_type": "suv", "price": 4500},
+        {"cab_id": "INTER_DEL_JAI_3", "cab_type": "prime sedan", "price": 5000},
     ],
     ("jaipur", "delhi"): [
-        {"cab_type": "sedan", "price": 3500},
-        {"cab_type": "suv", "price": 4500},
-        {"cab_type": "prime sedan", "price": 5000},
+        {"cab_id": "INTER_JAI_DEL_1", "cab_type": "sedan", "price": 3500},
+        {"cab_id": "INTER_JAI_DEL_2", "cab_type": "suv", "price": 4500},
+        {"cab_id": "INTER_JAI_DEL_3", "cab_type": "prime sedan", "price": 5000},
     ],
-    
     ("delhi", "agra"): [
-        {"cab_type": "sedan", "price": 3000},
-        {"cab_type": "suv", "price": 4000},
-        {"cab_type": "prime sedan", "price": 4500},
+        {"cab_id": "INTER_DEL_AGR_1", "cab_type": "sedan", "price": 3000},
+        {"cab_id": "INTER_DEL_AGR_2", "cab_type": "suv", "price": 4000},
+        {"cab_id": "INTER_DEL_AGR_3", "cab_type": "prime sedan", "price": 4500},
     ],
     ("agra", "delhi"): [
-        {"cab_type": "sedan", "price": 3000},
-        {"cab_type": "suv", "price": 4000},
-        {"cab_type": "prime sedan", "price": 4500},
+        {"cab_id": "INTER_AGR_DEL_1",  "cab_type": "sedan", "price": 3000},
+        {"cab_id": "INTER_AGR_DEL_2", "cab_type": "suv", "price": 4000},
+        {"cab_id": "INTER_AGR_DEL_3", "cab_type": "prime sedan", "price": 4500},
     ],
-    
     ("bangalore", "mysore"): [
-        {"cab_type": "sedan", "price": 2200},
-        {"cab_type": "suv", "price": 3000},
-        {"cab_type": "prime sedan", "price": 3500},
+        {"cab_id": "INTER_BLR_MYS_1", "cab_type": "sedan", "price": 2200},
+        {"cab_id": "INTER_BLR_MYS_2", "cab_type": "suv", "price": 3000},
+        {"cab_id": "INTER_BLR_MYS_3", "cab_type": "prime sedan", "price": 3500},
     ],
     ("mysore", "bangalore"): [
-        {"cab_type": "sedan", "price": 2200},
-        {"cab_type": "suv", "price": 3000},
-        {"cab_type": "prime sedan", "price": 3500},
+        {"cab_id": "INTER_MYS_BLR_1", "cab_type": "sedan", "price": 2200},
+        {"cab_id": "INTER_MYS_BLR_2", "cab_type": "suv", "price": 3000},
+        {"cab_id": "INTER_MYS_BLR_3", "cab_type": "prime sedan", "price": 3500},
     ],
-    
     ("hyderabad", "vijayawada"): [
-        {"cab_type": "sedan", "price": 3200},
-        {"cab_type": "suv", "price": 4200},
-        {"cab_type": "prime sedan", "price": 4800},
+        {"cab_id": "INTER_HYD_VIJ_1", "cab_type": "sedan", "price": 3200},
+        {"cab_id": "INTER_HYD_VIJ_2", "cab_type": "suv", "price": 4200},
+        {"cab_id": "INTER_HYD_VIJ_3", "cab_type": "prime sedan", "price": 4800},
     ],
     ("vijayawada", "hyderabad"): [
-        {"cab_type": "sedan", "price": 3200},
-        {"cab_type": "suv", "price": 4200},
-        {"cab_type": "prime sedan", "price": 4800},
+        {"cab_id": "INTER_VIJ_HYD_1", "cab_type": "sedan", "price": 3200},
+        {"cab_id": "INTER_VIJ_HYD_2", "cab_type": "suv", "price": 4200},
+        {"cab_id": "INTER_VIJ_HYD_3", "cab_type": "prime sedan", "price": 4800},
     ],
-    
+
     # ============== GENERIC FALLBACK ROUTES ==============
-    
     ("airport", "city"): [
-        {"cab_type": "mini", "price": 500},
-        {"cab_type": "sedan", "price": 700},
-        {"cab_type": "suv", "price": 1000},
+        {"cab_id": "FALL_AP_CT_1", "cab_type": "mini", "price": 500},
+        {"cab_id": "FALL_AP_CT_2", "cab_type": "sedan", "price": 700},
+        {"cab_id": "FALL_AP_CT_3", "cab_type": "suv", "price": 1000},
     ],
-    
     ("airport", "railway station"): [
-        {"cab_type": "mini", "price": 450},
-        {"cab_type": "sedan", "price": 650},
-        {"cab_type": "suv", "price": 900},
+        {"cab_id": "FALL_AP_RS_1", "cab_type": "mini", "price": 450},
+        {"cab_id": "FALL_AP_RS_2", "cab_type": "sedan", "price": 650},
+        {"cab_id": "FALL_AP_RS_3", "cab_type": "suv", "price": 900},
     ],
-    
     ("airport", "hotel"): [
-        {"cab_type": "mini", "price": 400},
-        {"cab_type": "sedan", "price": 550},
-        {"cab_type": "suv", "price": 800},
+        {"cab_id": "FALL_AP_HTL_1", "cab_type": "mini", "price": 400},
+        {"cab_id": "FALL_AP_HTL_2", "cab_type": "sedan", "price": 550},
+        {"cab_id": "FALL_AP_HTL_3", "cab_type": "suv", "price": 800},
     ],
-    
     ("railway station", "hotel"): [
-        {"cab_type": "auto", "price": 180},
-        {"cab_type": "mini", "price": 300},
-        {"cab_type": "sedan", "price": 450},
+        {"cab_id": "FALL_RS_HTL_1", "cab_type": "auto", "price": 180},
+        {"cab_id": "FALL_RS_HTL_2", "cab_type": "mini", "price": 300},
+        {"cab_id": "FALL_RS_HTL_3", "cab_type": "sedan", "price": 450},
     ],
 }
+
+
+from datetime import datetime , timedelta , date
+import random
+from models.models import HoldCabRequest , HoldCabResponse
+
+BOOKING_HOLDS = {}
+HOLD_COUNTER = 1000
+
+def generate_hold_id()->str:
+    global HOLD_COUNTER
+    HOLD_COUNTER += 1
+    return f"HOLD_{HOLD_COUNTER}"
+
+def get_cab_by_id(cab_id: str)->dict:
+    for route, cabs in MOCK_CAB_DB.items():
+        for cab in cabs:
+            if cab["cab_id"] == cab_id:
+                return {
+                    'cab_id': cab['cab_id'],
+                    'cab_type': cab['cab_type'],
+                    'price': cab['price'],
+                    'route': f"{route[0]} → {route[1]}"
+                }
+    return None
+
+def create_booking_hold(cab_id:str , pickup:str , drop:str , departure_date:date)->dict:
+    cab_details = get_cab_by_id(cab_id)
+    if not cab_details:
+        return None
+    hold_id = generate_hold_id()
+    current_time = datetime.now()
+    expiry_time = current_time + timedelta(minutes=15)
+    hold_data = {
+        'hold_id': hold_id,
+        'cab_id': cab_id,
+        'status': 'held',
+        'cab_details': cab_details,
+        'price': cab_details['price'],
+        'pickup_location': pickup,
+        'drop_location': drop,
+        'departure_date': departure_date.isoformat() if isinstance(departure_date, date) else str(departure_date),
+        'created_at': current_time.isoformat(),
+        'expires_at': expiry_time.isoformat(),
+        'updated_at': current_time.isoformat()
+    }
+    BOOKING_HOLDS[hold_id] = hold_data
+    return hold_data
+
+def get_booking_hold(hold_id: str)->dict:
+    return BOOKING_HOLDS.get(hold_id) or None
+
+def is_hold_expired(hold_id: str)->bool:
+    hold = get_booking_hold(hold_id)
+    if not hold:
+        return True
+    if hold['expires_at'] < datetime.now():
+        BOOKING_HOLDS[hold_id]['status'] = 'expired'
+        return True  
+    return False  
+
+def cleanup_expired_holds():
+    current_time   = datetime.now()
+    expired_count = 0
+    for hold_id , hold in BOOKING_HOLDS.items():
+        if hold['expires_at'] < current_time and hold['status'] == 'held':
+            BOOKING_HOLDS[hold_id]['status'] = 'expired'
+            expired_count += 1
+    return expired_count
+
+
