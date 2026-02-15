@@ -40,8 +40,7 @@ async def geocode_location(query: str) -> list[LocationOption]:
     
     if not GOOGLE_PLACES_API_KEY:
         logger.error("Cannot geocode location - GOOGLE_PLACES_API_KEY not configured")
-        logger.error("Please add your API key to the .env file")
-        return []
+        raise ValueError("Location service is not configured. Please contact administrator.")
     
     try:
         params = {
@@ -101,7 +100,9 @@ async def resolve_location_by_place_id(place_id: str) -> Optional[ResolvedLocati
     if not place_id:
         logger.warning("Empty place_id provided to resolve_location_by_place_id")
         return None
-    
+    if not GOOGLE_PLACES_API_KEY:
+        logger.error("Cannot resolve location - GOOGLE_PLACES_API_KEY not configured")
+        return None
     try:
         params = {
             "place_id": place_id,
@@ -128,10 +129,10 @@ async def resolve_location_by_place_id(place_id: str) -> Optional[ResolvedLocati
             formatted_address=result.get("formatted_address", ""),
             name=result.get("name", ""),
             lat=location.get("lat", 0.0),
-            long=location.get("lng", 0.0),
+            lng=location.get("lng", 0.0),
         )
         
-        logger.info(f"✅ Resolved location: {resolved_location.name} at ({resolved_location.lat}, {resolved_location.long})")
+        logger.info(f"✅ Resolved location: {resolved_location.name} at ({resolved_location.lat}, {resolved_location.lng})")
         return resolved_location
     
     except httpx.TimeoutException:

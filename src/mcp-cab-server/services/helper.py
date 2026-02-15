@@ -1,10 +1,21 @@
-from .mock_db import MOCK_CAB_DB , create_booking_hold ,  get_cab_by_id  
-from models.models import SearchRequest , SearchResponse , IndividualCabResponse , HoldCabResponse , BookingStatus
-from typing import List
+from .mock_db import MOCK_CAB_DB , create_booking_hold ,  get_cab_by_id ,add_passenger_to_hold , get_passenger_details , is_hold_expired
+from models.models import  SearchResponse , IndividualCabResponse , HoldCabResponse , BookingStatus  ,  PassengerDetailsResponse
+from typing import List , Union
 import logging
-from datetime import datetime , timedelta
+from datetime import datetime , timedelta , date
 logger = logging.getLogger(__name__)
 
+
+def ensure_isoformat(value: Union[datetime, date, str]) -> str:
+    """
+    Convert datetime/date objects to ISO format string.
+    Returns string as-is if already converted.
+    """
+    if isinstance(value, datetime):
+        return value.isoformat()
+    elif isinstance(value, date):
+        return value.isoformat()
+    return str(value)
 
 DEFAULT_CABS = [
     {"cab_id": "DEF_CAB_MINI", "cab_type": "mini", "price": 300},
@@ -68,6 +79,8 @@ def get_available_cabs(pickup: str, drop: str) -> SearchResponse:
     
     
     logger.info(f"⚠️ No specific route found, returning default cabs")
+    logger.warning(f"Using default pricing - actual price may vary based on distance")
+
     return SearchResponse(cabs=[
         IndividualCabResponse(cab_id=cab["cab_id"], cab_type=cab["cab_type"], price=cab["price"]) 
         for cab in DEFAULT_CABS
@@ -90,11 +103,59 @@ def hold_cab(cab_id: str , pickup: str , drop: str , departure_date)->HoldCabRes
         hold_id=hold_data['hold_id'],
         cab_id=hold_data['cab_id'],
         status=BookingStatus.HELD,
-        expires_at=hold_data['expires_at'],
+        expires_at=ensure_isoformat(hold_data['expires_at']),
         cab_details=hold_data['cab_details'],
         price=hold_data['price'],
         pickup_location=hold_data['pickup_location'],
         drop_location=hold_data['drop_location'],
-        departure_date=hold_data['departure_date'],
-        created_at=hold_data['created_at']
+        departure_date=ensure_isoformat(hold_data['departure_date']),
+        created_at=ensure_isoformat(hold_data['created_at'])
     )
+
+def add_passenger_details_to_hold(hold_id: str , passenger_name: str , passenger_phone: str , passenger_email: str = None , special_requests:str= None)->PassengerDetailsResponse:
+    logger.info(f"Adding passenger details to hold : {hold_id}")
+    passenger_details = {
+        'passenger_name': passenger_name,
+        'passenger_phone': passenger_phone,
+        'passenger_email': passenger_email,
+        'special_requests': special_requests
+    }
+    try: 
+        updated_hold = add_passenger_to_hold(hold_id, passenger_details)
+        logger.info(f"✅ Passenger details added: {passenger_name} ({passenger_phone})")
+        
+        booking_summary = {
+            'hold_id': hold_id,
+            'cab_type': updated_hold['cab_details']['cab_type'],
+            'price': updated_hold['price'],
+            'pickup': updated_hold['pickup_location'],
+            'drop': updated_hold['drop_location'],
+            'departure_date': ensure_isoformat(updated_hold['departure_date']),
+            'passenger': {
+                'name': passenger_name,
+                'phone': passenger_phone,
+                'email': passenger_email
+            }
+        }
+
+        
+        
+        return PassengerDetailsResponse(
+            hold_id=hold_id,
+            status=BookingStatus.PASSENGER_ADDED,
+            passenger_name=passenger_name,
+            passenger_phone=passenger_phone,
+            passenger_email=passenger_email,
+            special_requests=special_requests,
+            ready_for_payment=True,
+            expires_at=ensure_isoformat(updated_hold['expires_at']),
+            booking_summary=booking_summary
+        )
+        
+    except ValueError as e:
+        logger.error(f"❌ Failed to add passenger details: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"❌ Unexpected error: {str(e)}")
+        raise ValueError(f"Failed to add passenger details: {str(e)}")
+
