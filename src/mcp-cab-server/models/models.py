@@ -44,7 +44,7 @@ class SearchRequest(BaseModel):
     @field_validator("pickup", "drop")
     @classmethod
     def normalize_location(cls, v: str):
-        return v.strip().lower()
+        return v.strip()
         
 class IndividualCabResponse(BaseModel):
     cab_id: str = Field(description="unique identifer for the cab")

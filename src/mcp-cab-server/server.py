@@ -19,12 +19,7 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP("cab-server")
 
-async def periodic_cleanup():
-    while True:
-        await asyncio.sleep(300)  # Run every 5 minutes
-        expired = cleanup_expired_holds()
-        if expired > 0:
-            logger.info(f"🧹 Cleaned up {expired} expired holds")
+
 
 async def get_location_with_disambiguation(
     ctx: Context, 
