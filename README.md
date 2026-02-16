@@ -1,14 +1,32 @@
 # MCP Cab Search & Book Server
 
-A Model Context Protocol (MCP) server for searching and booking cabs with real-time location autocomplete using Google Places API.
+A complete Model Context Protocol (MCP) server for searching, booking, and managing cab rides with real-time location autocomplete, secure payment processing, and booking management.
 
 ## Features
 
-- 🔍 **Real-time Location Search**: Powered by Google Places Autocomplete API
-- 🗺️ **Smart Location Resolution**: Automatic geocoding with precise coordinates
-- 🚕 **Cab Availability**: Search available cabs between pickup and drop locations
-- 💬 **Interactive Elicitation**: When multiple locations match, users can select from a dropdown
-- 📅 **Trip Planning**: Support for different trip types (one-way, round-trip, hourly rental, airport transfer)
+### 🔍 Location Services
+- **Real-time Location Search**: Powered by Google Places Autocomplete API
+- **Smart Location Resolution**: Automatic geocoding with precise coordinates
+- **Interactive Disambiguation**: Dropdown selection when multiple locations match
+- **Fuzzy Matching**: Intelligent fallback for route matching
+
+### 🚕 Booking Management
+- **Cab Search**: Find available cabs between any two locations
+- **Hold System**: 15-minute temporary booking holds
+- **Passenger Details**: Capture passenger information securely
+- **Trip Planning**: Support for one-way, round-trip, hourly rental, and airport transfers
+
+### 💳 Payment System
+- **Mock Payment Gateway**: Realistic payment simulation with Streamlit frontend
+- **Card Validation**: Luhn algorithm validation, expiry checks, CVV validation
+- **Payment Sessions**: Secure session management with expiration
+- **Test Cards**: Multiple test cards for Visa, Mastercard, Amex, and Discover
+
+### 📋 Complete Booking Flow
+- **Driver Assignment**: Automatic assignment from driver pool
+- **Booking Confirmation**: Final confirmation with complete trip details
+- **Status Tracking**: Real-time booking status updates
+- **Cross-process Data Sharing**: File-based storage for multi-process architecture
 
 ## Architecture
 
@@ -24,18 +42,52 @@ The server uses two Google Places API endpoints:
    - Endpoint: `https://maps.googleapis.com/maps/api/place/details/json`
    - Returns: Full place information with exact latitude/longitude
 
-### Flow Diagram
+### Complete Booking Flow
 
 ```
-User Input → Autocomplete API → Multiple Suggestions?
-                                      ├─ Yes → Elicitation (User Selects)
-                                      └─ No  → Auto-select
-                                           ↓
-                                   Details API → Coordinates
-                                           ↓
-                                   Search Available Cabs
-                                           ↓
-                                   Return Results
+1. Search Phase
+   User Input → Autocomplete API → Location Disambiguation
+        ↓
+   Search Cabs → Return Available Options
+
+2. Booking Phase
+   Select Cab → Create Hold (15 min expiry)
+        ↓
+   Add Passenger Details → Generate Payment Link
+
+3. Payment Phase
+   Open Payment URL → Enter Card Details → Validate
+        ↓
+   Process Payment → Update Session Status
+
+4. Confirmation Phase
+   Verify Payment → Assign Driver → Confirm Booking
+        ↓
+   Return Booking Details with Driver Info
+```
+
+### Architecture Components
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    MCP Server (FastMCP)                 │
+│  - Location Services (Google Places API)               │
+│  - Booking Management (Hold, Passenger, Status)        │
+│  - Payment Tools (Create Order, Verify, Confirm)       │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│              File-based Storage (.storage/)             │
+│  - booking_holds.json                                   │
+│  - payment_sessions.json                                │
+│  - passenger_data.json                                  │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────┬─────────────────────────┬─────────────────┐
+│  FastAPI    │   Streamlit Frontend    │  Mock Services  │
+│  Backend    │   (Payment UI)          │  (DB, Drivers)  │
+│  Port: 8000 │   Port: 8501            │                 │
+└─────────────┴─────────────────────────┴─────────────────┘
 ```
 
 ## Setup
@@ -44,7 +96,7 @@ User Input → Autocomplete API → Multiple Suggestions?
 
 - Python 3.11+
 - Google Cloud Project with Places API enabled
-- Google Places API Key
+- Google Places API Key (required for location services)
 
 ### Installation
 
@@ -63,14 +115,18 @@ Or using pip:
 pip install -e .
 ```
 
-3. Configure Google API Key:
+3. Configure Environment:
 
 Create a `.env` file in the project root:
 ```env
 GOOGLE_PLACES_API_KEY=your_actual_api_key_here
 ```
 
-**Important**: Never commit your `.env` file to version control!
+**Important Security Notes:**
+- Never commit your `.env` file to version control
+- The `.env` file is already in `.gitignore`
+- Never share your API keys publicly
+- Restrict your API key to only required services in Google Cloud Console
 
 ### Getting a Google Places API Key
 
@@ -83,113 +139,268 @@ GOOGLE_PLACES_API_KEY=your_actual_api_key_here
 5. Copy the API key to your `.env` file
 6. (Optional) Restrict the API key to only Places API for security
 
-### Running the Server
+### Running the Complete System
 
-Start the MCP server:
+The system requires three separate processes for full functionality:
 
+#### 1. Start MCP Server (Terminal 1)
 ```bash
+python main.py
+# or
 python src/mcp-cab-server/server.py
 ```
 
-Or using the main entry point:
-
+#### 2. Start Payment Backend (Terminal 2)
 ```bash
-python main.py
+uv run uvicorn src.mcp-cab-server.payment_backend:app --reload --port 8000
 ```
+
+#### 3. Start Payment Frontend (Terminal 3)
+```bash
+uv run streamlit run src/mcp-cab-server/payment_frontend.py --server.port 8501
+```
+
+**Note:** For basic cab search functionality, only the MCP Server (step 1) is required. The payment components (steps 2-3) are needed for the complete booking flow.
 
 ## Usage
 
-### Using with MCP Inspector
+### Complete Booking Flow Example
 
-1. Install MCP Inspector:
+#### Step 1: Search for Cabs
+```python
+Search_cabs(
+    pickup="Delhi Airport",
+    drop="Connaught Place",
+    trip_type="one way",
+    departure_date="2024-02-20"
+)
+```
+
+#### Step 2: Create Booking Hold
+```python
+hold_cab_booking(
+    cab_id="DEL_IGI_CP_2",
+    pickup="Indira Gandhi International Airport",
+    drop="Connaught Place",
+    departure_date="2024-02-20"
+)
+# Returns: hold_id (valid for 15 minutes)
+```
+
+#### Step 3: Add Passenger Details
+```python
+add_passenger_details(
+    hold_id="HOLD_1001",
+    passenger_name="John Doe",
+    passenger_phone="+919876543210",
+    passenger_email="john@example.com"
+)
+```
+
+#### Step 4: Create Payment Order
+```python
+create_payment_order(hold_id="HOLD_1001")
+# Returns: payment_url (opens in browser)
+```
+
+#### Step 5: Complete Payment
+- Open the payment URL in your browser
+- Enter card details (use test cards provided)
+- Submit payment
+
+#### Step 6: Verify Payment
+```python
+verify_mock_payment(session_id="PAY_5001")
+# Returns: payment status
+```
+
+#### Step 7: Confirm Booking
+```python
+confirm_booking(hold_id="HOLD_1001")
+# Returns: booking_id, driver details, confirmation
+```
+
+### Test Cards
+
+Use these cards in the payment frontend:
+
+| Card Type | Number | CVV | Expiry |
+|-----------|--------|-----|--------|
+| Visa | 4532015112830366 | 123 | Any future date |
+| Visa | 4111111111111111 | 123 | Any future date |
+| Mastercard | 5425233430109903 | 123 | Any future date |
+| Amex | 378282246310005 | 1234 | Any future date |
+| Discover | 6011111111111117 | 123 | Any future date |
+
+**Note:** All payments are mock transactions. No real money is processed.
+
+### Testing the System
+
+#### Quick Payment System Test
 ```bash
-npx @modelcontextprotocol/inspector
+python test_payment_system.py
 ```
 
-2. Connect to the server and test the `Search_cabs` tool
-
-3. Example input:
-```json
-{
-  "pickup": "Mumbai Airport",
-  "drop": "Gateway of India",
-  "trip_type": "one way",
-  "departure_date": "2024-02-15"
-}
-```
-
-4. If multiple locations match, you'll see an elicitation prompt:
-```
-🚕 Found 3 locations for 'Mumbai Airport'. Please select the pickup location:
-1. Chhatrapati Shivaji Maharaj International Airport - Mumbai, Maharashtra
-2. Mumbai Domestic Airport - Andheri, Mumbai
-3. Mumbai Airport Metro Station - Mumbai
-```
-
-5. Select the desired location and the server will fetch available cabs
-
-### Testing the Integration
-
-Run the test script to verify Google API integration:
-
-```bash
-python test_integration.py
-```
-
-This will:
-- Test location autocomplete with various queries
-- Verify location resolution with coordinates
-- Simulate the elicitation flow
-- Display results in the terminal
+This verifies:
+- All imports and dependencies
+- Card validation (Luhn algorithm)
+- Driver pool availability
+- Module integrity
 
 ## Project Structure
 
 ```
 mcp-cabs-search-book/
-├── .env                          # Environment variables (API keys)
-├── .gitignore                    # Git ignore file
-├── pyproject.toml                # Project dependencies
-├── README.md                     # This file
-├── test_integration.py           # Integration tests
-├── main.py                       # Entry point
+├── .env                              # Environment variables (not in repo)
+├── .gitignore                        # Git ignore patterns
+├── pyproject.toml                    # Project dependencies
+├── README.md                         # This file
+├── main.py                           # MCP server entry point
+├── test_payment_system.py            # Payment system tests
 └── src/
+    ├── .storage/                     # File-based data storage (gitignored)
+    │   ├── booking_holds.json        # Active booking holds
+    │   ├── payment_sessions.json     # Payment session data
+    │   └── passenger_data.json       # Passenger information
     └── mcp-cab-server/
-        ├── server.py             # FastMCP server definition
+        ├── server.py                 # Main MCP server with tools
+        ├── payment_backend.py        # FastAPI payment backend
+        ├── payment_frontend.py       # Streamlit payment UI
         ├── models/
-        │   ├── __init__.py
-        │   └── models.py         # Pydantic models
+        │   └── models.py             # All Pydantic models
         └── services/
-            ├── __init__.py
-            ├── geocoding.py      # Google Places API integration
-            ├── helper.py         # Cab search logic
-            └── mock_db.py        # Mock cab database
+            ├── geocoding.py          # Google Places API integration
+            ├── helper.py             # Cab search & booking logic
+            ├── mock_db.py            # Mock database with routes
+            ├── payment.py            # Payment service layer
+            ├── card_validator.py     # Card validation (Luhn, etc.)
+            └── storage.py            # File-based storage utilities
 ```
 
 ## API Reference
 
-### Tool: `Search_cabs`
+### MCP Tools
 
+#### 1. `Search_cabs`
 Search for available cabs between two locations.
 
-**Input Schema:**
+**Input:**
 ```python
 {
-  "pickup": str,              # Pickup location (e.g., "Mumbai Airport")
-  "drop": str,                # Drop location (e.g., "Gateway of India")
-  "trip_type": TripType,      # "one way" | "round trip" | "Hourly rental" | "Airport Transfer"
-  "departure_date": date      # Format: "DD-MM-YYYY" or "YYYY-MM-DD"
+  "pickup": str,              # Pickup location
+  "drop": str,                # Drop location  
+  "trip_type": TripType,      # Trip type
+  "departure_date": date      # Journey date
 }
 ```
 
-**Output Schema:**
+**Output:**
 ```python
 {
   "cabs": [
-    {
-      "cab_type": str,        # e.g., "sedan", "suv", "mini"
-      "price": int            # Price in local currency
-    }
+    {"cab_id": str, "cab_type": str, "price": int}
   ]
+}
+```
+
+#### 2. `hold_cab_booking`
+Create a 15-minute temporary hold on a cab.
+
+**Input:**
+```python
+{
+  "cab_id": str,              # From search results
+  "pickup": str,              # Pickup location
+  "drop": str,                # Drop location
+  "departure_date": date      # Journey date
+}
+```
+
+**Output:**
+```python
+{
+  "hold_id": str,             # Unique hold identifier
+  "expires_at": str,          # ISO timestamp
+  "cab_details": dict,        # Cab information
+  "price": int                # Total price
+}
+```
+
+#### 3. `add_passenger_details`
+Add passenger information to a booking hold.
+
+**Input:**
+```python
+{
+  "hold_id": str,             # From hold_cab_booking
+  "passenger_name": str,      # Full name
+  "passenger_phone": str,     # Contact number
+  "passenger_email": str,     # Email (optional)
+  "special_requests": str     # Special requirements (optional)
+}
+```
+
+#### 4. `create_payment_order`
+Generate a payment link for the booking.
+
+**Input:**
+```python
+{
+  "hold_id": str              # Hold with passenger details
+}
+```
+
+**Output:**
+```python
+{
+  "session_id": str,          # Payment session ID
+  "payment_url": str,         # URL to open in browser
+  "amount": float,            # Payment amount
+  "expires_at": str           # Session expiry
+}
+```
+
+#### 5. `verify_mock_payment`
+Check payment completion status.
+
+**Input:**
+```python
+{
+  "session_id": str           # From create_payment_order
+}
+```
+
+**Output:**
+```python
+{
+  "status": str,              # "pending", "completed", "failed"
+  "amount": float,
+  "card_last4": str           # Last 4 digits (if completed)
+}
+```
+
+#### 6. `confirm_booking`
+Finalize booking after payment, assign driver.
+
+**Input:**
+```python
+{
+  "hold_id": str              # Hold with completed payment
+}
+```
+
+**Output:**
+```python
+{
+  "booking_id": str,          # Final booking reference
+  "driver": {
+    "name": str,
+    "phone": str,
+    "vehicle_number": str,
+    "vehicle_model": str,
+    "rating": float
+  },
+  "booking_summary": dict     # Complete trip details
 }
 ```
 
@@ -199,71 +410,191 @@ Search for available cabs between two locations.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GOOGLE_PLACES_API_KEY` | Yes | Your Google Places API key |
+| `GOOGLE_PLACES_API_KEY` | Yes | Google Places API key for location services |
+
+### Data Storage
+
+The system uses file-based JSON storage in `src/.storage/`:
+- **booking_holds.json**: Active booking holds and their status
+- **payment_sessions.json**: Payment session tracking
+- **passenger_data.json**: Passenger information per hold
+
+**Note:** The `.storage/` directory is gitignored and created automatically at runtime.
 
 ### API Costs (Approximate)
 
 - **Places Autocomplete**: ~$2.83 per 1,000 requests
 - **Place Details**: ~$17 per 1,000 requests
-- **Total per search**: ~$0.04 (2 autocomplete + 2 details calls)
+- **Total per cab search**: ~$0.04 (2 autocomplete + 2 details calls)
+
+### System Ports
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| MCP Server | stdio | Main MCP protocol server |
+| Payment Backend | 8000 | FastAPI REST API |
+| Payment Frontend | 8501 | Streamlit payment UI |
 
 ## Development
 
-### Adding New Mock Cab Routes
+### Adding Mock Routes
 
 Edit `src/mcp-cab-server/services/mock_db.py`:
 
 ```python
 MOCK_CAB_DB = {
     ("pickup_location_name", "drop_location_name"): [
-        {"cab_type": "sedan", "price": 500},
-        {"cab_type": "suv", "price": 700},
+        {"cab_id": "ROUTE_ID", "cab_type": "sedan", "price": 500},
+        {"cab_id": "ROUTE_ID_2", "cab_type": "suv", "price": 700},
     ],
 }
 ```
 
-**Note**: The location names must match the `name` field returned by Google Places API (lowercase).
+**Note:** Location names should match Google Places API output (lowercase).
+
+### Adding Mock Drivers
+
+Edit the `MOCK_DRIVERS` list in `mock_db.py`:
+
+```python
+MOCK_DRIVERS = [
+    {
+        "name": "Driver Name",
+        "phone": "+91-9876543210",
+        "vehicle_number": "DL-01-AB-1234",
+        "vehicle_model": "Honda City",
+        "rating": 4.8
+    }
+]
+```
 
 ### Extending the Server
 
-1. **Add new tools**: Create new functions in `server.py` decorated with `@mcp.tool()`
-2. **Add models**: Define Pydantic models in `models/models.py`
-3. **Add services**: Create service modules in `services/`
+1. **Add MCP Tools**: Decorate functions with `@mcp.tool()` in `server.py`
+2. **Add Models**: Define Pydantic models in `models/models.py`
+3. **Add Services**: Create service modules in `services/`
+4. **Add API Endpoints**: Add FastAPI routes in `payment_backend.py`
+
+### Code Structure
+
+- **Clean Code**: Comments removed for clarity, only essential inline comments remain
+- **Type Safety**: Full Pydantic model validation throughout
+- **Error Handling**: Comprehensive error messages with logging
+- **Storage**: Thread-safe file-based storage with automatic serialization
 
 ## Troubleshooting
 
-### "GOOGLE_PLACES_API_KEY not found"
+### Location Services
 
-Make sure:
-1. `.env` file exists in the project root
-2. The file contains: `GOOGLE_PLACES_API_KEY=your_key`
-3. The key has no quotes around it
-4. You've run `load_dotenv()` before using the API
+#### "GOOGLE_PLACES_API_KEY not found"
+- Ensure `.env` file exists in project root
+- Verify format: `GOOGLE_PLACES_API_KEY=your_key` (no quotes)
+- Check API key is valid in Google Cloud Console
+- Verify Places API is enabled and billing is active
 
-### "No results found"
+#### "No locations found"
+- Check API key permissions and quotas
+- Verify billing is enabled on Google Cloud project
+- Try less specific search terms
+- Check server logs for detailed errors
 
-Check:
-1. API key is valid and has Places API enabled
-2. You have billing enabled on your Google Cloud project
-3. The query is not too specific or misspelled
-4. Check logs for detailed error messages
+### Payment System
 
-### Import errors in IDE
+#### Payment frontend won't start
+- Ensure all dependencies installed: `uv sync`
+- Check port 8501 is available
+- Verify payment backend is running on port 8000
 
-The import warnings are normal for this project structure. The code will work at runtime because the PYTHONPATH is set correctly when running the server.
+#### Card validation fails
+- Use provided test cards (see Test Cards section)
+- Ensure expiry date is in future (MM/YY format)
+- CVV: 3 digits (4 for Amex)
+- Check browser console for detailed errors
+
+#### "Hold has expired"
+- Holds expire after 15 minutes
+- Create a new cab hold and retry quickly
+- Check system time is synchronized
+
+### Storage Issues
+
+#### "Permission denied" on .storage files
+- Ensure write permissions on project directory
+- Check `.storage/` directory is not read-only
+- Verify no other process is locking the files
+
+### General Issues
+
+#### Import warnings in IDE
+- Normal for this project structure
+- Code works correctly at runtime
+- PYTHONPATH is set properly by the entry points
+
+#### Multiple processes coordination
+- Start MCP server first
+- Then start payment backend
+- Finally start payment frontend
+- All three must run simultaneously for full functionality
+
+## Security Notes
+
+### What's Safe
+- ✅ All payments are mock/simulated
+- ✅ No real financial transactions occur
+- ✅ Test card numbers are public domain
+- ✅ No sensitive data stored permanently
+- ✅ `.env` file is gitignored
+
+### Important Reminders
+- 🔒 Never commit `.env` file to version control
+- 🔒 Never share your Google API key publicly
+- 🔒 Use API key restrictions in Google Cloud Console
+- 🔒 Keep `.storage/` directory gitignored
+- 🔒 This is a demonstration system only
+
+## Testing & Validation
+
+### Card Validation Features
+- **Luhn Algorithm**: Validates card checksum
+- **Card Type Detection**: Identifies Visa, Mastercard, Amex, Discover
+- **Expiry Validation**: Checks for expired cards
+- **CVV Length**: Validates based on card type (3 or 4 digits)
+- **Cardholder Name**: Basic format validation
+
+### Booking Hold System
+- **15-Minute Expiry**: Automatic hold expiration
+- **Status Tracking**: held → passenger_added → payment_pending → payment_success → confirmed
+- **Cleanup Thread**: Background cleanup of old expired holds
+- **Thread-Safe Storage**: Concurrent access protection
+
+## Production Considerations
+
+**⚠️ This is a demonstration project. For production use:**
+
+1. Replace mock payment with real gateway (Stripe, Razorpay, etc.)
+2. Use proper database (PostgreSQL, MongoDB)
+3. Add authentication and authorization
+4. Implement rate limiting and API security
+5. Add comprehensive logging and monitoring
+6. Use environment-specific configurations
+7. Add unit and integration tests
+8. Implement proper error handling and retry logic
+9. Add data encryption for sensitive information
+10. Use message queues for background tasks
 
 ## License
 
-This project is for demonstration purposes.
+This project is for demonstration and educational purposes.
 
 ## Contributing
 
-This is a demonstration project. Feel free to fork and extend!
+Feel free to fork and extend this demonstration project!
 
 ## Support
 
-For issues or questions:
-1. Check the logs for detailed error messages
-2. Verify your Google API key is valid
-3. Test with the `test_integration.py` script
-4. Review the Google Places API documentation
+For issues:
+1. Check server logs for detailed error messages
+2. Run `python test_payment_system.py` to verify setup
+3. Verify Google API key and billing status
+4. Ensure all three processes are running
+5. Check browser console for frontend errors
