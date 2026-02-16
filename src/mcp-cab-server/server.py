@@ -210,6 +210,277 @@ async def add_passenger_details(
         raise ValueError(f"Failed to add passenger details: {str(e)}")
 
 
+# ==================== PAYMENT TOOLS ====================
+
+@mcp.tool(
+    name="create_payment_order",
+    description="Generate mock payment link for cab booking hold"
+)
+async def create_payment_order(
+    ctx: Context,
+    hold_id: str
+) -> dict:
+    """
+    Create a payment order and generate payment URL for user.
+    
+    This tool initiates the payment process by creating a payment session
+    and prompting the user to open the payment URL in their browser via
+    elicitation.
+    
+    Args:
+        ctx: FastMCP context for elicitation
+        hold_id: Hold ID from hold_cab_booking (must have passenger details)
+    
+    Returns:
+        Payment order details including session_id and payment_url
+    """
+    logger.info(f"💳 Payment order creation request for hold: {hold_id}")
+    
+    try:
+        # Import payment service
+        from services.payment import create_payment_order_internal
+        
+        # Create payment order
+        payment_order = create_payment_order_internal(hold_id)
+        
+        # Use elicitation to prompt user to open payment URL
+        logger.info(f"🔗 Prompting user to open payment URL")
+        
+        result = await ctx.elicit(
+            message=(
+                f"💳 Payment link ready for your cab booking!\n\n"
+                f"**Amount:** ₹{payment_order.amount:.2f}\n"
+                f"**Session ID:** {payment_order.session_id}\n"
+                f"**Valid until:** {payment_order.expires_at}\n\n"
+                f"🔗 **Payment URL:**\n{payment_order.payment_url}\n\n"
+                f"Please open this URL in your browser to complete payment.\n"
+                f"After payment, use `verify_mock_payment` to check status.\n\n"
+                f"Did you open the payment URL?"
+            ),
+            response_type=None
+        )
+        
+        # Handle user response
+        if result.action == "accept":
+            await ctx.info(
+                f"✅ Payment URL provided!\n\n"
+                f"📋 Payment Details:\n"
+                f"   • Session ID: {payment_order.session_id}\n"
+                f"   • Amount: ₹{payment_order.amount:.2f}\n"
+                f"   • Hold ID: {hold_id}\n"
+                f"   • Expires: {payment_order.expires_at}\n\n"
+                f"💡 Next Steps:\n"
+                f"   1. Complete payment in your browser\n"
+                f"   2. Use `verify_mock_payment('{payment_order.session_id}')` to check status\n"
+                f"   3. Use `confirm_booking('{hold_id}')` after payment completes"
+            )
+        elif result.action == "decline":
+            await ctx.info(
+                f"❌ Payment link declined.\n\n"
+                f"Session ID: {payment_order.session_id} (created but not opened)\n"
+                f"You can still open the URL later if needed."
+            )
+        else:  # cancel
+            await ctx.info(
+                f"⚠️ Payment operation cancelled.\n\n"
+                f"Session ID: {payment_order.session_id} (created but cancelled)"
+            )
+        
+        return {
+            "session_id": payment_order.session_id,
+            "payment_url": payment_order.payment_url,
+            "amount": payment_order.amount,
+            "hold_id": payment_order.hold_id,
+            "expires_at": payment_order.expires_at,
+            "created_at": payment_order.created_at,
+            "status": "initiated"
+        }
+        
+    except ValueError as e:
+        logger.error(f"❌ Payment order creation failed: {str(e)}")
+        await ctx.info(f"❌ Error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"❌ Unexpected error: {str(e)}")
+        await ctx.info(f"❌ Unexpected error: {str(e)}")
+        raise ValueError(f"Failed to create payment order: {str(e)}")
+
+
+@mcp.tool(
+    name="verify_mock_payment",
+    description="Check payment completion status for a session"
+)
+async def verify_mock_payment(
+    ctx: Context,
+    session_id: str
+) -> dict:
+    """
+    Verify the status of a payment session.
+    
+    Use this tool after creating a payment order to check if the user
+    has completed the payment in their browser.
+    
+    Args:
+        ctx: FastMCP context
+        session_id: Payment session ID from create_payment_order
+    
+    Returns:
+        Payment status details including completion status
+    """
+    logger.info(f"🔍 Payment verification request for session: {session_id}")
+    
+    try:
+        # Import payment service
+        from services.payment import get_payment_status_internal
+        
+        # Get payment status
+        payment_status = get_payment_status_internal(session_id)
+        
+        # Format response based on status
+        status_str = payment_status.status.value
+        
+        if payment_status.status.value == "completed":
+            await ctx.info(
+                f"✅ Payment Completed!\n\n"
+                f"📋 Payment Details:\n"
+                f"   • Session ID: {session_id}\n"
+                f"   • Status: {status_str.upper()}\n"
+                f"   • Amount: ₹{payment_status.amount:.2f}\n"
+                f"   • Hold ID: {payment_status.hold_id}\n"
+                f"   • Completed: {payment_status.completed_at}\n"
+                f"   • Card: •••• {payment_status.card_last4 or 'N/A'}\n\n"
+                f"✅ Payment successfully processed!\n"
+                f"💡 Next: Use `confirm_booking('{payment_status.hold_id}')` to finalize booking."
+            )
+        elif payment_status.status.value == "pending":
+            await ctx.info(
+                f"⏳ Payment Pending\n\n"
+                f"📋 Payment Details:\n"
+                f"   • Session ID: {session_id}\n"
+                f"   • Status: {status_str.upper()}\n"
+                f"   • Amount: ₹{payment_status.amount:.2f}\n"
+                f"   • Hold ID: {payment_status.hold_id}\n"
+                f"   • Created: {payment_status.created_at}\n\n"
+                f"⏳ Payment not completed yet.\n"
+                f"The user may still be entering payment details in the browser."
+            )
+        else:  # failed
+            await ctx.info(
+                f"❌ Payment Failed\n\n"
+                f"📋 Payment Details:\n"
+                f"   • Session ID: {session_id}\n"
+                f"   • Status: {status_str.upper()}\n"
+                f"   • Amount: ₹{payment_status.amount:.2f}\n"
+                f"   • Hold ID: {payment_status.hold_id}\n\n"
+                f"❌ Payment could not be processed.\n"
+                f"You may need to create a new payment order."
+            )
+        
+        return {
+            "session_id": payment_status.session_id,
+            "status": status_str,
+            "amount": payment_status.amount,
+            "hold_id": payment_status.hold_id,
+            "created_at": payment_status.created_at,
+            "completed_at": payment_status.completed_at,
+            "card_last4": payment_status.card_last4
+        }
+        
+    except ValueError as e:
+        logger.error(f"❌ Payment verification failed: {str(e)}")
+        await ctx.info(f"❌ Error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"❌ Unexpected error: {str(e)}")
+        await ctx.info(f"❌ Unexpected error: {str(e)}")
+        raise ValueError(f"Failed to verify payment: {str(e)}")
+
+
+@mcp.tool(
+    name="confirm_booking",
+    description="Finalize booking after payment and assign driver"
+)
+async def confirm_booking(
+    ctx: Context,
+    hold_id: str
+) -> dict:
+    """
+    Confirm booking after successful payment and assign a driver.
+    
+    This is the final step in the booking process. It verifies payment
+    completion, assigns a random mock driver, and generates the final
+    booking confirmation.
+    
+    Args:
+        ctx: FastMCP context
+        hold_id: Hold ID to confirm (must have completed payment)
+    
+    Returns:
+        Booking confirmation with driver details
+    """
+    logger.info(f"🎉 Booking confirmation request for hold: {hold_id}")
+    
+    try:
+        # Import payment service
+        from services.payment import confirm_booking_internal
+        
+        # Confirm booking
+        confirmation = confirm_booking_internal(hold_id)
+        
+        # Show confirmation to user
+        driver = confirmation.driver
+        summary = confirmation.booking_summary
+        
+        await ctx.info(
+            f"🎉 Booking Confirmed!\n\n"
+            f"📋 Booking Details:\n"
+            f"   • Booking ID: {confirmation.booking_id}\n"
+            f"   • Hold ID: {hold_id}\n"
+            f"   • Status: {confirmation.status.value.upper()}\n"
+            f"   • Confirmed: {confirmation.confirmed_at}\n\n"
+            f"🚗 Driver Assigned:\n"
+            f"   • Name: {driver.name}\n"
+            f"   • Phone: {driver.phone}\n"
+            f"   • Vehicle: {driver.vehicle_model}\n"
+            f"   • Number: {driver.vehicle_number}\n"
+            f"   • Rating: {driver.rating} ⭐\n\n"
+            f"🚕 Trip Details:\n"
+            f"   • Cab Type: {summary['cab_type']}\n"
+            f"   • Route: {summary['pickup']} → {summary['drop']}\n"
+            f"   • Date: {summary['departure_date']}\n"
+            f"   • Price: ₹{summary['price']}\n\n"
+            f"👤 Passenger:\n"
+            f"   • Name: {summary['passenger']['name']}\n"
+            f"   • Phone: {summary['passenger']['phone']}\n\n"
+            f"✅ Your cab booking is confirmed!\n"
+            f"The driver will contact you before the trip."
+        )
+        
+        return {
+            "booking_id": confirmation.booking_id,
+            "hold_id": confirmation.hold_id,
+            "status": confirmation.status.value,
+            "driver": {
+                "name": driver.name,
+                "phone": driver.phone,
+                "vehicle_number": driver.vehicle_number,
+                "vehicle_model": driver.vehicle_model,
+                "rating": driver.rating
+            },
+            "booking_summary": summary,
+            "confirmed_at": confirmation.confirmed_at
+        }
+        
+    except ValueError as e:
+        logger.error(f"❌ Booking confirmation failed: {str(e)}")
+        await ctx.info(f"❌ Error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"❌ Unexpected error: {str(e)}")
+        await ctx.info(f"❌ Unexpected error: {str(e)}")
+        raise ValueError(f"Failed to confirm booking: {str(e)}")
+
+
 if __name__ == "__main__":
     import threading
     

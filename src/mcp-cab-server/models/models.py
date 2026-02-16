@@ -176,3 +176,66 @@ class PassengerDetailsResponse(BaseModel):
     ready_for_payment: bool = Field(description="Whether ready to proceed to payment")
     expires_at: str = Field(description="Hold expiration time")
     booking_summary: dict = Field(description="Complete booking details so far")
+
+# ==================== PAYMENT MODELS ====================
+
+class PaymentStatus(str, Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class PaymentOrderRequest(BaseModel):
+    hold_id: str = Field(..., description="Hold ID to create payment for")
+
+class PaymentOrderResponse(BaseModel):
+    session_id: str = Field(description="Unique payment session identifier")
+    payment_url: str = Field(description="URL to complete payment")
+    amount: float = Field(description="Payment amount")
+    hold_id: str = Field(description="Associated hold ID")
+    expires_at: str = Field(description="Payment session expiration time (ISO 8601)")
+    created_at: str = Field(description="Payment session creation time (ISO 8601)")
+
+class PaymentVerifyRequest(BaseModel):
+    session_id: str = Field(..., description="Payment session ID to verify")
+
+class PaymentVerifyResponse(BaseModel):
+    session_id: str = Field(description="Payment session ID")
+    status: PaymentStatus = Field(description="Payment status")
+    amount: float = Field(description="Payment amount")
+    hold_id: str = Field(description="Associated hold ID")
+    created_at: str = Field(description="Payment creation time (ISO 8601)")
+    completed_at: Optional[str] = Field(None, description="Payment completion time (ISO 8601)")
+    card_last4: Optional[str] = Field(None, description="Last 4 digits of card used")
+
+class PaymentProcessRequest(BaseModel):
+    session_id: str = Field(..., description="Payment session ID")
+    card_number: str = Field(..., min_length=13, max_length=19, description="Card number")
+    cvv: str = Field(..., min_length=3, max_length=4, description="Card CVV")
+    expiry: str = Field(..., pattern=r"^\d{2}/\d{2}$", description="Card expiry (MM/YY)")
+    cardholder_name: str = Field(..., min_length=1, description="Cardholder name")
+
+class PaymentProcessResponse(BaseModel):
+    success: bool = Field(description="Payment success status")
+    message: str = Field(description="Payment result message")
+    session_id: str = Field(description="Payment session ID")
+    card_last4: Optional[str] = Field(None, description="Last 4 digits of card")
+
+# ==================== BOOKING CONFIRMATION MODELS ====================
+
+class DriverDetails(BaseModel):
+    name: str = Field(description="Driver name")
+    phone: str = Field(description="Driver phone number")
+    vehicle_number: str = Field(description="Vehicle registration number")
+    vehicle_model: str = Field(description="Vehicle model")
+    rating: float = Field(description="Driver rating out of 5.0")
+
+class ConfirmBookingRequest(BaseModel):
+    hold_id: str = Field(..., description="Hold ID to confirm")
+
+class ConfirmBookingResponse(BaseModel):
+    booking_id: str = Field(description="Final booking confirmation ID")
+    hold_id: str = Field(description="Original hold ID")
+    status: BookingStatus = Field(description="Booking status (CONFIRMED)")
+    driver: DriverDetails = Field(description="Assigned driver details")
+    booking_summary: dict = Field(description="Complete booking information")
+    confirmed_at: str = Field(description="Booking confirmation time (ISO 8601)")

@@ -367,8 +367,16 @@ from datetime import datetime , timedelta , date
 import random
 from models.models import HoldCabRequest , HoldCabResponse
 
-BOOKING_HOLDS = {}
-HOLD_COUNTER = 1000
+# Import file-based storage for cross-process data sharing
+from services.storage import (
+    load_holds, save_holds,
+    load_payments, save_payments,
+    load_passengers, save_passengers
+)
+
+# Load data from file storage on module import
+BOOKING_HOLDS = load_holds()
+HOLD_COUNTER = max([int(h.split('_')[1]) for h in BOOKING_HOLDS.keys()] + [1000])
 
 def generate_hold_id()->str:
     global HOLD_COUNTER
@@ -408,9 +416,13 @@ def create_booking_hold(cab_id:str , pickup:str , drop:str , departure_date:date
         'updated_at': current_time
     }
     BOOKING_HOLDS[hold_id] = hold_data
+    save_holds(BOOKING_HOLDS)  # Save to file
     return hold_data
 
 def get_booking_hold(hold_id: str)->dict:
+    # Reload latest data
+    global BOOKING_HOLDS
+    BOOKING_HOLDS = load_holds()
     return BOOKING_HOLDS.get(hold_id) or None
 
 def is_hold_expired(hold_id: str)->bool:
@@ -455,14 +467,21 @@ def cleanup_expired_holds():
     return expired_count
 
 
-PASSENGER_DATA = {}
+PASSENGER_DATA = load_passengers()
+
 def add_passenger_to_hold(hold_id: str , passenger_details: dict)->dict:
+    # Reload latest data
+    global BOOKING_HOLDS, PASSENGER_DATA
+    BOOKING_HOLDS = load_holds()
+    PASSENGER_DATA = load_passengers()
+    
     hold = get_booking_hold(hold_id)
     if not hold:
         raise ValueError(f"Hold not found: {hold_id}")
     current_time = datetime.now()
     if hold['expires_at'] < current_time:
         BOOKING_HOLDS[hold_id]['status'] = 'expired'
+        save_holds(BOOKING_HOLDS)
         raise ValueError(f"Hold has expired at {hold['expires_at'].isoformat()}")
     
     
@@ -483,6 +502,10 @@ def add_passenger_to_hold(hold_id: str , passenger_details: dict)->dict:
     BOOKING_HOLDS[hold_id]['updated_at'] = datetime.now()
     BOOKING_HOLDS[hold_id]['passenger_details'] = PASSENGER_DATA[hold_id]
     
+    # Save to file
+    save_holds(BOOKING_HOLDS)
+    save_passengers(PASSENGER_DATA)
+    
     return BOOKING_HOLDS[hold_id]
 
 def get_passenger_details(hold_id: str) -> dict:
@@ -492,3 +515,297 @@ def get_passenger_details(hold_id: str) -> dict:
 def has_passenger_details(hold_id: str) -> bool:
     
     return hold_id in PASSENGER_DATA
+
+
+# ==================== PAYMENT SESSIONS ====================
+
+PAYMENT_SESSIONS = load_payments()
+PAYMENT_COUNTER = max([int(p.split('_')[1]) for p in PAYMENT_SESSIONS.keys()] + [5000])
+
+def generate_payment_session_id() -> str:
+    """Generate unique payment session ID"""
+    global PAYMENT_COUNTER
+    PAYMENT_COUNTER += 1
+    return f"PAY_{PAYMENT_COUNTER}"
+
+
+def create_payment_session(hold_id: str, amount: float) -> dict:
+    """
+    Create a new payment session.
+    
+    Args:
+        hold_id: Associated hold ID
+        amount: Payment amount
+    
+    Returns:
+        Payment session data
+    
+    Raises:
+        ValueError: If hold not found or invalid
+    """
+    # Reload latest data
+    global BOOKING_HOLDS, PAYMENT_SESSIONS
+    BOOKING_HOLDS = load_holds()
+    PAYMENT_SESSIONS = load_payments()
+    
+    hold = get_booking_hold(hold_id)
+    if not hold:
+        raise ValueError(f"Hold not found: {hold_id}")
+    
+    # Check if hold has expired
+    if is_hold_expired(hold_id):
+        raise ValueError(f"Hold has expired")
+    
+    # Check if hold has passenger details
+    if hold['status'] not in ['passenger_added', 'payment_pending']:
+        raise ValueError(f"Hold must have passenger details before payment. Current status: {hold['status']}")
+    
+    session_id = generate_payment_session_id()
+    current_time = datetime.now()
+    expiry_time = current_time + timedelta(minutes=30)
+    
+    payment_data = {
+        'session_id': session_id,
+        'hold_id': hold_id,
+        'amount': amount,
+        'status': 'pending',
+        'created_at': current_time,
+        'expires_at': expiry_time,
+        'completed_at': None,
+        'card_last4': None
+    }
+    
+    PAYMENT_SESSIONS[session_id] = payment_data
+    
+    # Update hold status to payment_pending
+    BOOKING_HOLDS[hold_id]['status'] = 'payment_pending'
+    BOOKING_HOLDS[hold_id]['updated_at'] = current_time
+    
+    # Save to file
+    save_payments(PAYMENT_SESSIONS)
+    save_holds(BOOKING_HOLDS)
+    
+    return payment_data
+
+
+def get_payment_session(session_id: str) -> dict:
+    """Get payment session by ID"""
+    # Reload latest data
+    global PAYMENT_SESSIONS
+    PAYMENT_SESSIONS = load_payments()
+    return PAYMENT_SESSIONS.get(session_id)
+
+
+def update_payment_status(session_id: str, status: str, card_last4: str = None) -> dict:
+    """
+    Update payment session status.
+    
+    Args:
+        session_id: Payment session ID
+        status: New status ('completed' or 'failed')
+        card_last4: Last 4 digits of card (optional)
+    
+    Returns:
+        Updated payment session data
+    
+    Raises:
+        ValueError: If session not found or invalid state
+    """
+    # Reload latest data
+    global BOOKING_HOLDS, PAYMENT_SESSIONS
+    BOOKING_HOLDS = load_holds()
+    PAYMENT_SESSIONS = load_payments()
+    
+    session = get_payment_session(session_id)
+    if not session:
+        raise ValueError(f"Payment session not found: {session_id}")
+    
+    # Check if already completed
+    if session['status'] == 'completed':
+        raise ValueError("Payment already completed")
+    
+    # Check if session expired
+    if session['expires_at'] < datetime.now():
+        session['status'] = 'failed'
+        save_payments(PAYMENT_SESSIONS)
+        raise ValueError("Payment session has expired")
+    
+    current_time = datetime.now()
+    session['status'] = status
+    session['completed_at'] = current_time if status == 'completed' else None
+    session['card_last4'] = card_last4
+    
+    # Update associated hold status
+    hold_id = session['hold_id']
+    if hold_id in BOOKING_HOLDS:
+        if status == 'completed':
+            BOOKING_HOLDS[hold_id]['status'] = 'payment_success'
+        elif status == 'failed':
+            BOOKING_HOLDS[hold_id]['status'] = 'payment_pending'  # Allow retry
+        BOOKING_HOLDS[hold_id]['updated_at'] = current_time
+    
+    # Save to file
+    save_payments(PAYMENT_SESSIONS)
+    save_holds(BOOKING_HOLDS)
+    
+    return session
+
+
+def get_payment_by_hold(hold_id: str) -> dict:
+    """Get payment session associated with a hold ID"""
+    for session in PAYMENT_SESSIONS.values():
+        if session['hold_id'] == hold_id and session['status'] == 'completed':
+            return session
+    return None
+
+
+# ==================== DRIVER POOL ====================
+
+MOCK_DRIVERS = [
+    {
+        "name": "Rajesh Kumar",
+        "phone": "+91-9876543210",
+        "vehicle_number": "DL-01-AB-1234",
+        "vehicle_model": "Honda City",
+        "rating": 4.8
+    },
+    {
+        "name": "Amit Singh",
+        "phone": "+91-9876543211",
+        "vehicle_number": "DL-02-CD-5678",
+        "vehicle_model": "Maruti Suzuki Dzire",
+        "rating": 4.7
+    },
+    {
+        "name": "Suresh Patel",
+        "phone": "+91-9876543212",
+        "vehicle_number": "DL-03-EF-9012",
+        "vehicle_model": "Toyota Innova",
+        "rating": 4.9
+    },
+    {
+        "name": "Vijay Sharma",
+        "phone": "+91-9876543213",
+        "vehicle_number": "DL-04-GH-3456",
+        "vehicle_model": "Hyundai Creta",
+        "rating": 4.6
+    },
+    {
+        "name": "Kiran Reddy",
+        "phone": "+91-9876543214",
+        "vehicle_number": "KA-05-IJ-7890",
+        "vehicle_model": "Honda City",
+        "rating": 4.8
+    },
+    {
+        "name": "Pradeep Nair",
+        "phone": "+91-9876543215",
+        "vehicle_number": "KA-06-KL-1234",
+        "vehicle_model": "Maruti Swift",
+        "rating": 4.5
+    },
+    {
+        "name": "Ravi Verma",
+        "phone": "+91-9876543216",
+        "vehicle_number": "MH-07-MN-5678",
+        "vehicle_model": "Toyota Etios",
+        "rating": 4.7
+    },
+    {
+        "name": "Manoj Gupta",
+        "phone": "+91-9876543217",
+        "vehicle_number": "UP-08-OP-9012",
+        "vehicle_model": "Honda Amaze",
+        "rating": 4.6
+    },
+    {
+        "name": "Deepak Joshi",
+        "phone": "+91-9876543218",
+        "vehicle_number": "RJ-09-QR-3456",
+        "vehicle_model": "Hyundai Verna",
+        "rating": 4.8
+    },
+    {
+        "name": "Anil Mehta",
+        "phone": "+91-9876543219",
+        "vehicle_number": "GJ-10-ST-7890",
+        "vehicle_model": "Maruti Ciaz",
+        "rating": 4.9
+    }
+]
+
+BOOKING_COUNTER = 2000
+
+
+def generate_booking_id() -> str:
+    """Generate unique booking ID"""
+    global BOOKING_COUNTER
+    BOOKING_COUNTER += 1
+    return f"BKG_{BOOKING_COUNTER}"
+
+
+def assign_driver_to_booking(hold_id: str) -> dict:
+    """
+    Assign a random driver to a booking.
+    
+    Args:
+        hold_id: Hold ID to assign driver to
+    
+    Returns:
+        Driver details
+    
+    Raises:
+        ValueError: If hold not found or payment not completed
+    """
+    hold = get_booking_hold(hold_id)
+    if not hold:
+        raise ValueError(f"Hold not found: {hold_id}")
+    
+    # Check payment completed
+    if hold['status'] != 'payment_success':
+        raise ValueError(f"Payment not completed for this hold. Current status: {hold['status']}")
+    
+    # Select random driver
+    driver = random.choice(MOCK_DRIVERS)
+    return driver.copy()
+
+
+def confirm_booking_final(hold_id: str, driver: dict) -> dict:
+    """
+    Finalize booking confirmation.
+    
+    Args:
+        hold_id: Hold ID to confirm
+        driver: Driver details to assign
+    
+    Returns:
+        Confirmed booking data
+    
+    Raises:
+        ValueError: If hold not found or invalid state
+    """
+    # Reload latest data
+    global BOOKING_HOLDS
+    BOOKING_HOLDS = load_holds()
+    
+    hold = get_booking_hold(hold_id)
+    if not hold:
+        raise ValueError(f"Hold not found: {hold_id}")
+    
+    if hold['status'] != 'payment_success':
+        raise ValueError(f"Cannot confirm booking. Payment not completed. Status: {hold['status']}")
+    
+    booking_id = generate_booking_id()
+    current_time = datetime.now()
+    
+    # Update hold with booking confirmation
+    BOOKING_HOLDS[hold_id]['status'] = 'confirmed'
+    BOOKING_HOLDS[hold_id]['booking_id'] = booking_id
+    BOOKING_HOLDS[hold_id]['driver'] = driver
+    BOOKING_HOLDS[hold_id]['confirmed_at'] = current_time
+    BOOKING_HOLDS[hold_id]['updated_at'] = current_time
+    
+    # Save to file
+    save_holds(BOOKING_HOLDS)
+    
+    return BOOKING_HOLDS[hold_id]
