@@ -1,5 +1,4 @@
 MOCK_CAB_DB = {
-    # ============== DELHI ROUTES ==============
     ("igi airport", "connaught place"): [
         {"cab_id": "DEL_IGI_CP_1", "cab_type": "mini", "price": 450},
         {"cab_id": "DEL_IGI_CP_2", "cab_type": "sedan", "price": 650},
@@ -76,7 +75,6 @@ MOCK_CAB_DB = {
         {"cab_id": "DEL_INTRA_3", "cab_type": "sedan", "price": 500},
     ],
 
-    # ============== BANGALORE ROUTES ==============
     ("kempegowda airport", "electronic city"): [
         {"cab_id": "BLR_KEM_EC_1", "cab_type": "mini", "price": 800},
         {"cab_id": "BLR_KEM_EC_2", "cab_type": "sedan", "price": 1100},
@@ -153,7 +151,6 @@ MOCK_CAB_DB = {
         {"cab_id": "BLR_INTRA_3", "cab_type": "sedan", "price": 450},
     ],
 
-    # ============== KOLKATA ROUTES ==============
     ("netaji subhas airport", "salt lake sector v"): [
         {"cab_id": "CCU_NS_SL5_1", "cab_type": "mini", "price": 350},
         {"cab_id": "CCU_NS_SL5_2", "cab_type": "sedan", "price": 500},
@@ -215,7 +212,6 @@ MOCK_CAB_DB = {
         {"cab_id": "CCU_INTRA_3", "cab_type": "sedan", "price": 400},
     ],
 
-    # ============== HYDERABAD ROUTES ==============
     ("rajiv gandhi airport", "hitec city"): [
         {"cab_id": "HYD_RGI_HIT_1", "cab_type": "mini", "price": 650},
         {"cab_id": "HYD_RGI_HIT_2", "cab_type": "sedan", "price": 900},
@@ -297,7 +293,6 @@ MOCK_CAB_DB = {
         {"cab_id": "HYD_INTRA_3", "cab_type": "sedan", "price": 450},
     ],
 
-    # ============== INTER-CITY ROUTES ==============
     ("delhi", "jaipur"): [
         {"cab_id": "INTER_DEL_JAI_1", "cab_type": "sedan", "price": 3500},
         {"cab_id": "INTER_DEL_JAI_2", "cab_type": "suv", "price": 4500},
@@ -339,7 +334,6 @@ MOCK_CAB_DB = {
         {"cab_id": "INTER_VIJ_HYD_3", "cab_type": "prime sedan", "price": 4800},
     ],
 
-    # ============== GENERIC FALLBACK ROUTES ==============
     ("airport", "city"): [
         {"cab_id": "FALL_AP_CT_1", "cab_type": "mini", "price": 500},
         {"cab_id": "FALL_AP_CT_2", "cab_type": "sedan", "price": 700},
@@ -366,15 +360,12 @@ MOCK_CAB_DB = {
 from datetime import datetime , timedelta , date
 import random
 from models.models import HoldCabRequest , HoldCabResponse
-
-# Import file-based storage for cross-process data sharing
 from services.storage import (
     load_holds, save_holds,
     load_payments, save_payments,
     load_passengers, save_passengers
 )
 
-# Load data from file storage on module import
 BOOKING_HOLDS = load_holds()
 HOLD_COUNTER = max([int(h.split('_')[1]) for h in BOOKING_HOLDS.keys()] + [1000])
 
@@ -416,11 +407,10 @@ def create_booking_hold(cab_id:str , pickup:str , drop:str , departure_date:date
         'updated_at': current_time
     }
     BOOKING_HOLDS[hold_id] = hold_data
-    save_holds(BOOKING_HOLDS)  # Save to file
+    save_holds(BOOKING_HOLDS)
     return hold_data
 
 def get_booking_hold(hold_id: str)->dict:
-    # Reload latest data
     global BOOKING_HOLDS
     BOOKING_HOLDS = load_holds()
     return BOOKING_HOLDS.get(hold_id) or None
@@ -434,31 +424,19 @@ def is_hold_expired(hold_id: str)->bool:
         return True  
     return False  
 
-# def cleanup_expired_holds():
-#     current_time   = datetime.now()
-#     expired_count = 0
-#     for hold_id , hold in BOOKING_HOLDS.items():
-#         if hold['expires_at'] < current_time and hold['status'] == 'held':
-#             BOOKING_HOLDS[hold_id]['status'] = 'expired'
-#             expired_count += 1
-#     return expired_count
-
 def cleanup_expired_holds():
     current_time = datetime.now()
     expired_count = 0
-    grace_period = timedelta(hours=1)  # Keep for 1 hour for reference
+    grace_period = timedelta(hours=1)
     
     holds_to_delete = []
     for hold_id, hold in BOOKING_HOLDS.items():
-        # Mark recently expired as 'expired'
         if hold['expires_at'] < current_time and hold['status'] == 'held':
             BOOKING_HOLDS[hold_id]['status'] = 'expired'
             expired_count += 1
-        # Delete old expired holds
         elif hold['status'] == 'expired' and hold['expires_at'] < (current_time - grace_period):
             holds_to_delete.append(hold_id)
     
-    # Delete old holds
     for hold_id in holds_to_delete:
         del BOOKING_HOLDS[hold_id]
         if hold_id in PASSENGER_DATA:
@@ -470,7 +448,6 @@ def cleanup_expired_holds():
 PASSENGER_DATA = load_passengers()
 
 def add_passenger_to_hold(hold_id: str , passenger_details: dict)->dict:
-    # Reload latest data
     global BOOKING_HOLDS, PASSENGER_DATA
     BOOKING_HOLDS = load_holds()
     PASSENGER_DATA = load_passengers()
@@ -488,7 +465,6 @@ def add_passenger_to_hold(hold_id: str , passenger_details: dict)->dict:
     if hold['status'] not in ['held', 'passenger_added']:
         raise ValueError(f"Hold is in invalid state: {hold['status']}")
     
-    # Store passenger data
     PASSENGER_DATA[hold_id] = {
         'passenger_name': passenger_details['passenger_name'],
         'passenger_phone': passenger_details['passenger_phone'],
@@ -497,53 +473,32 @@ def add_passenger_to_hold(hold_id: str , passenger_details: dict)->dict:
         'added_at': datetime.now()
     }
     
-    # Update hold status
     BOOKING_HOLDS[hold_id]['status'] = 'passenger_added'
     BOOKING_HOLDS[hold_id]['updated_at'] = datetime.now()
     BOOKING_HOLDS[hold_id]['passenger_details'] = PASSENGER_DATA[hold_id]
     
-    # Save to file
     save_holds(BOOKING_HOLDS)
     save_passengers(PASSENGER_DATA)
     
     return BOOKING_HOLDS[hold_id]
 
 def get_passenger_details(hold_id: str) -> dict:
-    
     return PASSENGER_DATA.get(hold_id)
 
 def has_passenger_details(hold_id: str) -> bool:
-    
     return hold_id in PASSENGER_DATA
 
-
-# ==================== PAYMENT SESSIONS ====================
 
 PAYMENT_SESSIONS = load_payments()
 PAYMENT_COUNTER = max([int(p.split('_')[1]) for p in PAYMENT_SESSIONS.keys()] + [5000])
 
 def generate_payment_session_id() -> str:
-    """Generate unique payment session ID"""
     global PAYMENT_COUNTER
     PAYMENT_COUNTER += 1
     return f"PAY_{PAYMENT_COUNTER}"
 
 
 def create_payment_session(hold_id: str, amount: float) -> dict:
-    """
-    Create a new payment session.
-    
-    Args:
-        hold_id: Associated hold ID
-        amount: Payment amount
-    
-    Returns:
-        Payment session data
-    
-    Raises:
-        ValueError: If hold not found or invalid
-    """
-    # Reload latest data
     global BOOKING_HOLDS, PAYMENT_SESSIONS
     BOOKING_HOLDS = load_holds()
     PAYMENT_SESSIONS = load_payments()
@@ -552,11 +507,9 @@ def create_payment_session(hold_id: str, amount: float) -> dict:
     if not hold:
         raise ValueError(f"Hold not found: {hold_id}")
     
-    # Check if hold has expired
     if is_hold_expired(hold_id):
         raise ValueError(f"Hold has expired")
     
-    # Check if hold has passenger details
     if hold['status'] not in ['passenger_added', 'payment_pending']:
         raise ValueError(f"Hold must have passenger details before payment. Current status: {hold['status']}")
     
@@ -577,11 +530,9 @@ def create_payment_session(hold_id: str, amount: float) -> dict:
     
     PAYMENT_SESSIONS[session_id] = payment_data
     
-    # Update hold status to payment_pending
     BOOKING_HOLDS[hold_id]['status'] = 'payment_pending'
     BOOKING_HOLDS[hold_id]['updated_at'] = current_time
     
-    # Save to file
     save_payments(PAYMENT_SESSIONS)
     save_holds(BOOKING_HOLDS)
     
@@ -589,29 +540,12 @@ def create_payment_session(hold_id: str, amount: float) -> dict:
 
 
 def get_payment_session(session_id: str) -> dict:
-    """Get payment session by ID"""
-    # Reload latest data
     global PAYMENT_SESSIONS
     PAYMENT_SESSIONS = load_payments()
     return PAYMENT_SESSIONS.get(session_id)
 
 
 def update_payment_status(session_id: str, status: str, card_last4: str = None) -> dict:
-    """
-    Update payment session status.
-    
-    Args:
-        session_id: Payment session ID
-        status: New status ('completed' or 'failed')
-        card_last4: Last 4 digits of card (optional)
-    
-    Returns:
-        Updated payment session data
-    
-    Raises:
-        ValueError: If session not found or invalid state
-    """
-    # Reload latest data
     global BOOKING_HOLDS, PAYMENT_SESSIONS
     BOOKING_HOLDS = load_holds()
     PAYMENT_SESSIONS = load_payments()
@@ -620,11 +554,9 @@ def update_payment_status(session_id: str, status: str, card_last4: str = None) 
     if not session:
         raise ValueError(f"Payment session not found: {session_id}")
     
-    # Check if already completed
     if session['status'] == 'completed':
         raise ValueError("Payment already completed")
     
-    # Check if session expired
     if session['expires_at'] < datetime.now():
         session['status'] = 'failed'
         save_payments(PAYMENT_SESSIONS)
@@ -635,16 +567,14 @@ def update_payment_status(session_id: str, status: str, card_last4: str = None) 
     session['completed_at'] = current_time if status == 'completed' else None
     session['card_last4'] = card_last4
     
-    # Update associated hold status
     hold_id = session['hold_id']
     if hold_id in BOOKING_HOLDS:
         if status == 'completed':
             BOOKING_HOLDS[hold_id]['status'] = 'payment_success'
         elif status == 'failed':
-            BOOKING_HOLDS[hold_id]['status'] = 'payment_pending'  # Allow retry
+            BOOKING_HOLDS[hold_id]['status'] = 'payment_pending'
         BOOKING_HOLDS[hold_id]['updated_at'] = current_time
     
-    # Save to file
     save_payments(PAYMENT_SESSIONS)
     save_holds(BOOKING_HOLDS)
     
@@ -652,14 +582,11 @@ def update_payment_status(session_id: str, status: str, card_last4: str = None) 
 
 
 def get_payment_by_hold(hold_id: str) -> dict:
-    """Get payment session associated with a hold ID"""
     for session in PAYMENT_SESSIONS.values():
         if session['hold_id'] == hold_id and session['status'] == 'completed':
             return session
     return None
 
-
-# ==================== DRIVER POOL ====================
 
 MOCK_DRIVERS = [
     {
@@ -738,53 +665,24 @@ BOOKING_COUNTER = 2000
 
 
 def generate_booking_id() -> str:
-    """Generate unique booking ID"""
     global BOOKING_COUNTER
     BOOKING_COUNTER += 1
     return f"BKG_{BOOKING_COUNTER}"
 
 
 def assign_driver_to_booking(hold_id: str) -> dict:
-    """
-    Assign a random driver to a booking.
-    
-    Args:
-        hold_id: Hold ID to assign driver to
-    
-    Returns:
-        Driver details
-    
-    Raises:
-        ValueError: If hold not found or payment not completed
-    """
     hold = get_booking_hold(hold_id)
     if not hold:
         raise ValueError(f"Hold not found: {hold_id}")
     
-    # Check payment completed
     if hold['status'] != 'payment_success':
         raise ValueError(f"Payment not completed for this hold. Current status: {hold['status']}")
     
-    # Select random driver
     driver = random.choice(MOCK_DRIVERS)
     return driver.copy()
 
 
 def confirm_booking_final(hold_id: str, driver: dict) -> dict:
-    """
-    Finalize booking confirmation.
-    
-    Args:
-        hold_id: Hold ID to confirm
-        driver: Driver details to assign
-    
-    Returns:
-        Confirmed booking data
-    
-    Raises:
-        ValueError: If hold not found or invalid state
-    """
-    # Reload latest data
     global BOOKING_HOLDS
     BOOKING_HOLDS = load_holds()
     
@@ -798,14 +696,12 @@ def confirm_booking_final(hold_id: str, driver: dict) -> dict:
     booking_id = generate_booking_id()
     current_time = datetime.now()
     
-    # Update hold with booking confirmation
     BOOKING_HOLDS[hold_id]['status'] = 'confirmed'
     BOOKING_HOLDS[hold_id]['booking_id'] = booking_id
     BOOKING_HOLDS[hold_id]['driver'] = driver
     BOOKING_HOLDS[hold_id]['confirmed_at'] = current_time
     BOOKING_HOLDS[hold_id]['updated_at'] = current_time
     
-    # Save to file
     save_holds(BOOKING_HOLDS)
     
     return BOOKING_HOLDS[hold_id]

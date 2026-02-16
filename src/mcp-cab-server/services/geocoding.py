@@ -19,21 +19,11 @@ if not GOOGLE_PLACES_API_KEY:
     logger.error("⚠️  The server will not be able to fetch real location data")
    
 
-# Google Places API endpoints
 PLACES_AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
 PLACES_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 
 
 async def geocode_location(query: str) -> list[LocationOption]:
-    """
-    Use Google Places Autocomplete API to get location suggestions.
-    
-    Args:
-        query: User's search query for location
-        
-    Returns:
-        List of LocationOption objects with place suggestions
-    """
     if not query or not query.strip():
         logger.warning("Empty query provided to geocode_location")
         return []
@@ -46,7 +36,7 @@ async def geocode_location(query: str) -> list[LocationOption]:
         params = {
             "input": query,
             "key": GOOGLE_PLACES_API_KEY,
-            "types": "geocode|establishment",  # Allow both addresses and places
+            "types": "geocode|establishment",
         }
         
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -61,7 +51,6 @@ async def geocode_location(query: str) -> list[LocationOption]:
         predictions = data.get("predictions", [])
         logger.info(f"Found {len(predictions)} location suggestions for query: '{query}'")
         
-        
         location_options = []
         for prediction in predictions:
             
@@ -69,8 +58,8 @@ async def geocode_location(query: str) -> list[LocationOption]:
                 place_id=prediction["place_id"],
                 formatted_address=prediction["description"],
                 name=prediction.get("structured_formatting", {}).get("main_text", prediction["description"]),
-                lat=0.0,  # Will be populated when place is selected
-                lng=0.0   # Will be populated when place is selected
+                lat=0.0,
+                lng=0.0
             )
             location_options.append(location_option)
         
@@ -88,15 +77,6 @@ async def geocode_location(query: str) -> list[LocationOption]:
 
 
 async def resolve_location_by_place_id(place_id: str) -> Optional[ResolvedLocation]:
-    """
-    Use Google Places Details API to get complete location details including coordinates.
-    
-    Args:
-        place_id: Google Places place_id from autocomplete selection
-        
-    Returns:
-        ResolvedLocation with complete place details including coordinates
-    """
     if not place_id:
         logger.warning("Empty place_id provided to resolve_location_by_place_id")
         return None
@@ -124,7 +104,7 @@ async def resolve_location_by_place_id(place_id: str) -> Optional[ResolvedLocati
         location = geometry.get("location", {})
         
         resolved_location = ResolvedLocation(
-            original_query="",  # Not available in this context
+            original_query="",
             place_id=result.get("place_id", place_id),
             formatted_address=result.get("formatted_address", ""),
             name=result.get("name", ""),

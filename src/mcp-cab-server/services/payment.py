@@ -1,8 +1,3 @@
-"""
-Payment Service Module
-Handles payment order creation, verification, and booking confirmation logic.
-"""
-
 from datetime import datetime
 from urllib.parse import quote
 import logging
@@ -26,44 +21,27 @@ from services.mock_db import (
 
 logger = logging.getLogger(__name__)
 
-# Configuration
 FRONTEND_URL = "http://localhost:8501"
 
 
 def ensure_isoformat(value) -> str:
-    """Convert datetime to ISO format string"""
     if isinstance(value, datetime):
         return value.isoformat()
     return str(value)
 
 
 def create_payment_order_internal(hold_id: str) -> PaymentOrderResponse:
-    """
-    Create a payment order for a booking hold.
-    
-    Args:
-        hold_id: Hold ID to create payment for
-    
-    Returns:
-        PaymentOrderResponse with payment details and URL
-    
-    Raises:
-        ValueError: If hold not found, expired, or missing passenger details
-    """
     logger.info(f"💳 Creating payment order for hold: {hold_id}")
     
-    # Get hold details
     hold = get_booking_hold(hold_id)
     if not hold:
         logger.error(f"❌ Hold not found: {hold_id}")
         raise ValueError(f"Hold not found: {hold_id}")
     
-    # Check if hold expired
     if is_hold_expired(hold_id):
         logger.error(f"❌ Hold expired: {hold_id}")
         raise ValueError(f"Hold has expired")
     
-    # Check if passenger details added
     if hold['status'] not in ['passenger_added', 'payment_pending']:
         logger.error(f"❌ Hold missing passenger details. Status: {hold['status']}")
         raise ValueError(
@@ -71,10 +49,8 @@ def create_payment_order_internal(hold_id: str) -> PaymentOrderResponse:
             f"Current status: {hold['status']}"
         )
     
-    # Get amount from hold
     amount = float(hold['price'])
     
-    # Create payment session
     try:
         payment_session = create_payment_session(hold_id, amount)
         logger.info(f"✅ Payment session created: {payment_session['session_id']}")
@@ -82,10 +58,7 @@ def create_payment_order_internal(hold_id: str) -> PaymentOrderResponse:
         logger.error(f"❌ Failed to create payment session: {str(e)}")
         raise
     
-    # Generate payment URL with query parameters
     session_id = payment_session['session_id']
-    
-    # Get booking details for URL
     pickup_encoded = quote(hold['pickup_location'])
     drop_encoded = quote(hold['drop_location'])
     
@@ -111,18 +84,6 @@ def create_payment_order_internal(hold_id: str) -> PaymentOrderResponse:
 
 
 def get_payment_status_internal(session_id: str) -> PaymentVerifyResponse:
-    """
-    Get payment session status.
-    
-    Args:
-        session_id: Payment session ID
-    
-    Returns:
-        PaymentVerifyResponse with payment status
-    
-    Raises:
-        ValueError: If session not found
-    """
     logger.info(f"🔍 Checking payment status for session: {session_id}")
     
     payment_session = get_payment_session(session_id)
@@ -130,7 +91,6 @@ def get_payment_status_internal(session_id: str) -> PaymentVerifyResponse:
         logger.error(f"❌ Payment session not found: {session_id}")
         raise ValueError(f"Payment session not found: {session_id}")
     
-    # Map status to enum
     status_map = {
         'pending': PaymentStatus.PENDING,
         'completed': PaymentStatus.COMPLETED,
@@ -152,32 +112,17 @@ def get_payment_status_internal(session_id: str) -> PaymentVerifyResponse:
 
 
 def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
-    """
-    Confirm booking after payment completion and assign driver.
-    
-    Args:
-        hold_id: Hold ID to confirm
-    
-    Returns:
-        ConfirmBookingResponse with booking confirmation and driver details
-    
-    Raises:
-        ValueError: If hold not found, payment not completed, or other errors
-    """
     logger.info(f"✅ Confirming booking for hold: {hold_id}")
     
-    # Get hold details
     hold = get_booking_hold(hold_id)
     if not hold:
         logger.error(f"❌ Hold not found: {hold_id}")
         raise ValueError(f"Hold not found: {hold_id}")
     
-    # Check if hold expired
     if is_hold_expired(hold_id):
         logger.error(f"❌ Hold expired: {hold_id}")
         raise ValueError(f"Hold has expired")
     
-    # Verify payment completed
     payment = get_payment_by_hold(hold_id)
     if not payment:
         logger.error(f"❌ No completed payment found for hold: {hold_id}")
@@ -187,7 +132,6 @@ def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
             f"Current status: {hold['status']}"
         )
     
-    # Check hold status
     if hold['status'] not in ['payment_success', 'confirmed']:
         logger.error(f"❌ Invalid hold status for confirmation: {hold['status']}")
         raise ValueError(
@@ -195,7 +139,6 @@ def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
             f"Payment must be completed first."
         )
     
-    # If already confirmed, return existing confirmation
     if hold['status'] == 'confirmed' and 'booking_id' in hold:
         logger.info(f"ℹ️ Booking already confirmed: {hold['booking_id']}")
         driver = hold.get('driver', {})
@@ -209,7 +152,6 @@ def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
             confirmed_at=ensure_isoformat(hold.get('confirmed_at', datetime.now()))
         )
     
-    # Assign driver
     try:
         driver = assign_driver_to_booking(hold_id)
         logger.info(f"🚗 Driver assigned: {driver['name']} ({driver['vehicle_number']})")
@@ -217,7 +159,6 @@ def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
         logger.error(f"❌ Failed to assign driver: {str(e)}")
         raise
     
-    # Confirm booking
     try:
         confirmed_hold = confirm_booking_final(hold_id, driver)
         logger.info(f"🎉 Booking confirmed: {confirmed_hold['booking_id']}")
@@ -242,7 +183,6 @@ def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
 
 
 def _build_booking_summary(hold: dict) -> dict:
-    """Build comprehensive booking summary"""
     passenger_details = hold.get('passenger_details', {})
     
     summary = {
@@ -263,7 +203,6 @@ def _build_booking_summary(hold: dict) -> dict:
         'confirmed_at': ensure_isoformat(hold.get('confirmed_at'))
     }
     
-    # Add driver info if available
     if 'driver' in hold:
         summary['driver'] = hold['driver']
     

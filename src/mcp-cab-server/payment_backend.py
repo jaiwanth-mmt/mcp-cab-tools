@@ -1,12 +1,8 @@
-"""
-FastAPI Backend for Cab Booking Payment System
-Provides REST API endpoints for payment processing with mock card validation.
-"""
+"""FastAPI Backend for Cab Booking Payment System"""
 
 import sys
 import os
 
-# Add current directory to path for imports (where models, services are located)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
@@ -33,28 +29,23 @@ from services.mock_db import (
 )
 from services.card_validator import validate_card
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
 app = FastAPI(
     title="Cab Booking Payment Backend",
     description="REST API for processing mock cab booking payments",
     version="1.0.0"
 )
 
-# Enable CORS for Streamlit frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify actual origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# ==================== REQUEST/RESPONSE MODELS ====================
 
 class PaymentInitiateRequest(BaseModel):
     hold_id: str = Field(..., description="Hold ID to create payment for")
@@ -87,11 +78,8 @@ class HoldDetailsResponse(BaseModel):
     passenger_name: Optional[str] = None
 
 
-# ==================== ENDPOINTS ====================
-
 @app.get("/")
 def root():
-    """Health check endpoint"""
     return {
         "status": "ok",
         "service": "cab-payment-backend",
@@ -102,27 +90,18 @@ def root():
 
 @app.post("/api/payment/initiate", response_model=PaymentInitiateResponse)
 def initiate_payment(request: PaymentInitiateRequest):
-    """
-    Create a new payment session for a booking hold.
-    
-    This endpoint validates the hold and creates a payment session
-    that can be used to process payment.
-    """
     logger.info(f"💳 Payment initiation request for hold: {request.hold_id}")
     
     try:
-        # Get hold details
         hold = get_booking_hold(request.hold_id)
         if not hold:
             logger.error(f"❌ Hold not found: {request.hold_id}")
             raise HTTPException(status_code=404, detail=f"Hold not found: {request.hold_id}")
         
-        # Check if hold expired
         if is_hold_expired(request.hold_id):
             logger.error(f"❌ Hold expired: {request.hold_id}")
             raise HTTPException(status_code=400, detail="Hold has expired")
         
-        # Check if passenger details added
         if hold['status'] not in ['passenger_added', 'payment_pending', 'payment_success']:
             logger.error(f"❌ Invalid hold status: {hold['status']}")
             raise HTTPException(
@@ -130,10 +109,8 @@ def initiate_payment(request: PaymentInitiateRequest):
                 detail=f"Passenger details must be added before payment. Current status: {hold['status']}"
             )
         
-        # Get amount
         amount = float(hold['price'])
         
-        # Create payment session
         payment_session = create_payment_session(request.hold_id, amount)
         logger.info(f"✅ Payment session created: {payment_session['session_id']}")
         
@@ -154,32 +131,22 @@ def initiate_payment(request: PaymentInitiateRequest):
 
 @app.post("/api/payment/pay", response_model=PaymentProcessResponse)
 def process_payment(request: PaymentProcessRequest):
-    """
-    Process a payment with card details.
-    
-    This endpoint validates the card details using realistic validation
-    (Luhn algorithm, expiry checks, etc.) and marks the payment as completed.
-    """
     logger.info(f"💳 Payment processing request for session: {request.session_id}")
     
     try:
-        # Get payment session
         session = get_payment_session(request.session_id)
         if not session:
             logger.error(f"❌ Payment session not found: {request.session_id}")
             raise HTTPException(status_code=404, detail="Payment session not found")
         
-        # Check if already completed
         if session['status'] == 'completed':
             logger.warning(f"⚠️ Payment already completed: {request.session_id}")
             raise HTTPException(status_code=400, detail="Payment already completed")
         
-        # Check if session expired
         if session['expires_at'] < datetime.now():
             logger.error(f"❌ Payment session expired: {request.session_id}")
             raise HTTPException(status_code=400, detail="Payment session has expired")
         
-        # Validate card
         card_valid, error_message = validate_card(
             request.card_number,
             request.cvv,
@@ -191,11 +158,9 @@ def process_payment(request: PaymentProcessRequest):
             logger.error(f"❌ Card validation failed: {error_message}")
             raise HTTPException(status_code=400, detail=error_message)
         
-        # Get last 4 digits
         card_clean = request.card_number.replace(" ", "").replace("-", "")
         card_last4 = card_clean[-4:]
         
-        # Update payment status
         updated_session = update_payment_status(request.session_id, 'completed', card_last4)
         logger.info(f"✅ Payment completed successfully: {request.session_id}")
         
@@ -218,12 +183,6 @@ def process_payment(request: PaymentProcessRequest):
 
 @app.get("/api/payment/status/{session_id}", response_model=PaymentStatusResponse)
 def get_payment_status(session_id: str):
-    """
-    Get payment session status.
-    
-    Returns the current status of a payment session including
-    whether it's pending, completed, or failed.
-    """
     logger.info(f"🔍 Payment status request for session: {session_id}")
     
     try:
@@ -251,12 +210,6 @@ def get_payment_status(session_id: str):
 
 @app.get("/api/hold/{hold_id}", response_model=HoldDetailsResponse)
 def get_hold_details(hold_id: str):
-    """
-    Get booking hold details for display in payment UI.
-    
-    Returns basic hold information needed to show booking summary
-    on the payment page.
-    """
     logger.info(f"📋 Hold details request for: {hold_id}")
     
     try:
@@ -283,8 +236,6 @@ def get_hold_details(hold_id: str):
         logger.error(f"❌ Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-
-# ==================== MAIN ====================
 
 if __name__ == "__main__":
     import uvicorn
