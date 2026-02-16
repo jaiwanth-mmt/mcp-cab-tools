@@ -422,13 +422,36 @@ def is_hold_expired(hold_id: str)->bool:
         return True  
     return False  
 
+# def cleanup_expired_holds():
+#     current_time   = datetime.now()
+#     expired_count = 0
+#     for hold_id , hold in BOOKING_HOLDS.items():
+#         if hold['expires_at'] < current_time and hold['status'] == 'held':
+#             BOOKING_HOLDS[hold_id]['status'] = 'expired'
+#             expired_count += 1
+#     return expired_count
+
 def cleanup_expired_holds():
-    current_time   = datetime.now()
+    current_time = datetime.now()
     expired_count = 0
-    for hold_id , hold in BOOKING_HOLDS.items():
+    grace_period = timedelta(hours=1)  # Keep for 1 hour for reference
+    
+    holds_to_delete = []
+    for hold_id, hold in BOOKING_HOLDS.items():
+        # Mark recently expired as 'expired'
         if hold['expires_at'] < current_time and hold['status'] == 'held':
             BOOKING_HOLDS[hold_id]['status'] = 'expired'
             expired_count += 1
+        # Delete old expired holds
+        elif hold['status'] == 'expired' and hold['expires_at'] < (current_time - grace_period):
+            holds_to_delete.append(hold_id)
+    
+    # Delete old holds
+    for hold_id in holds_to_delete:
+        del BOOKING_HOLDS[hold_id]
+        if hold_id in PASSENGER_DATA:
+            del PASSENGER_DATA[hold_id]
+    
     return expired_count
 
 
