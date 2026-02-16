@@ -1,7 +1,4 @@
-"""
-Simple file-based storage for sharing data between MCP server and FastAPI backend.
-This allows both processes to access the same booking holds and payment sessions.
-"""
+"""File-based storage for sharing data between MCP server and FastAPI backend"""
 
 import json
 import os
@@ -9,23 +6,19 @@ from datetime import datetime, date
 from typing import Dict, Any
 import threading
 
-# Storage file path
 STORAGE_DIR = os.path.join(os.path.dirname(__file__), '..', '..', '.storage')
 HOLDS_FILE = os.path.join(STORAGE_DIR, 'booking_holds.json')
 PAYMENTS_FILE = os.path.join(STORAGE_DIR, 'payment_sessions.json')
 PASSENGERS_FILE = os.path.join(STORAGE_DIR, 'passenger_data.json')
 
-# Thread lock for file operations
 _lock = threading.Lock()
 
 
 def ensure_storage_dir():
-    """Create storage directory if it doesn't exist"""
     os.makedirs(STORAGE_DIR, exist_ok=True)
 
 
 def datetime_serializer(obj):
-    """JSON serializer for datetime and date objects"""
     if isinstance(obj, datetime):
         return obj.isoformat()
     if isinstance(obj, date):
@@ -34,7 +27,6 @@ def datetime_serializer(obj):
 
 
 def datetime_deserializer(dct):
-    """JSON deserializer for datetime strings"""
     for key, value in dct.items():
         if isinstance(value, str) and 'T' in value and ':' in value:
             try:
@@ -45,7 +37,6 @@ def datetime_deserializer(dct):
 
 
 def save_holds(holds: Dict[str, Any]):
-    """Save booking holds to file"""
     ensure_storage_dir()
     with _lock:
         with open(HOLDS_FILE, 'w') as f:
@@ -53,7 +44,6 @@ def save_holds(holds: Dict[str, Any]):
 
 
 def load_holds() -> Dict[str, Any]:
-    """Load booking holds from file"""
     ensure_storage_dir()
     if not os.path.exists(HOLDS_FILE):
         return {}
@@ -62,7 +52,6 @@ def load_holds() -> Dict[str, Any]:
         try:
             with open(HOLDS_FILE, 'r') as f:
                 data = json.load(f)
-                # Convert datetime strings back to datetime objects
                 for hold_id, hold in data.items():
                     if 'created_at' in hold and isinstance(hold['created_at'], str):
                         hold['created_at'] = datetime.fromisoformat(hold['created_at'])
@@ -83,7 +72,6 @@ def load_holds() -> Dict[str, Any]:
 
 
 def save_payments(payments: Dict[str, Any]):
-    """Save payment sessions to file"""
     ensure_storage_dir()
     with _lock:
         with open(PAYMENTS_FILE, 'w') as f:
@@ -91,7 +79,6 @@ def save_payments(payments: Dict[str, Any]):
 
 
 def load_payments() -> Dict[str, Any]:
-    """Load payment sessions from file"""
     ensure_storage_dir()
     if not os.path.exists(PAYMENTS_FILE):
         return {}
@@ -100,7 +87,6 @@ def load_payments() -> Dict[str, Any]:
         try:
             with open(PAYMENTS_FILE, 'r') as f:
                 data = json.load(f)
-                # Convert datetime strings back to datetime objects
                 for session_id, session in data.items():
                     if 'created_at' in session and isinstance(session['created_at'], str):
                         session['created_at'] = datetime.fromisoformat(session['created_at'])
@@ -114,7 +100,6 @@ def load_payments() -> Dict[str, Any]:
 
 
 def save_passengers(passengers: Dict[str, Any]):
-    """Save passenger data to file"""
     ensure_storage_dir()
     with _lock:
         with open(PASSENGERS_FILE, 'w') as f:
@@ -122,7 +107,6 @@ def save_passengers(passengers: Dict[str, Any]):
 
 
 def load_passengers() -> Dict[str, Any]:
-    """Load passenger data from file"""
     ensure_storage_dir()
     if not os.path.exists(PASSENGERS_FILE):
         return {}
@@ -131,7 +115,6 @@ def load_passengers() -> Dict[str, Any]:
         try:
             with open(PASSENGERS_FILE, 'r') as f:
                 data = json.load(f)
-                # Convert datetime strings back to datetime objects  
                 for hold_id, passenger in data.items():
                     if 'added_at' in passenger and isinstance(passenger['added_at'], str):
                         passenger['added_at'] = datetime.fromisoformat(passenger['added_at'])
@@ -141,7 +124,6 @@ def load_passengers() -> Dict[str, Any]:
 
 
 def clear_all_storage():
-    """Clear all storage files (for testing)"""
     ensure_storage_dir()
     for file_path in [HOLDS_FILE, PAYMENTS_FILE, PASSENGERS_FILE]:
         if os.path.exists(file_path):

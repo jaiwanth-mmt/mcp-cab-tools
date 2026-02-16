@@ -7,10 +7,6 @@ logger = logging.getLogger(__name__)
 
 
 def ensure_isoformat(value: Union[datetime, date, str]) -> str:
-    """
-    Convert datetime/date objects to ISO format string.
-    Returns string as-is if already converted.
-    """
     if isinstance(value, datetime):
         return value.isoformat()
     elif isinstance(value, date):
@@ -25,16 +21,11 @@ DEFAULT_CABS = [
 ]
 
 def get_available_cabs(pickup: str, drop: str) -> SearchResponse:
-    """
-    Get available cabs between pickup and drop locations.
-    Uses fuzzy matching with fallback to ensure results are always returned.
-    """
     pickup_lower = pickup.lower()
     drop_lower = drop.lower()
     
     logger.info(f"🔍 Searching cabs for route: '{pickup_lower}' → '{drop_lower}'")
     
-    # Strategy 1: Try exact match first
     exact_match = MOCK_CAB_DB.get((pickup_lower, drop_lower), None)
     if exact_match:
         logger.info(f"✅ Exact match found in database")
@@ -43,15 +34,12 @@ def get_available_cabs(pickup: str, drop: str) -> SearchResponse:
             for cab in exact_match
         ])
     
-    # Strategy 2: Fuzzy matching - check if keywords exist in location names
     logger.info(f"🔎 No exact match, trying fuzzy matching...")
     
     for (pickup_key, drop_key), cabs in MOCK_CAB_DB.items():
-        # Extract significant words (ignore common words)
         pickup_keywords = [w for w in pickup_key.split() if len(w) > 3]
         drop_keywords = [w for w in drop_key.split() if len(w) > 3]
         
-        # Check if any significant keyword from the key exists in the actual location name
         pickup_match = any(keyword in pickup_lower for keyword in pickup_keywords)
         drop_match = any(keyword in drop_lower for keyword in drop_keywords)
         
@@ -62,21 +50,18 @@ def get_available_cabs(pickup: str, drop: str) -> SearchResponse:
                 for cab in cabs
             ])
     
-    # Strategy 3: Check if both locations contain same city (intra-city travel)
     logger.info(f"🔎 Checking for intra-city routes...")
     
     cities = ["mumbai", "pune", "delhi", "bangalore", "hyderabad"]
     for city in cities:
         if city in pickup_lower and city in drop_lower:
             logger.info(f"✅ Intra-city route detected: {city}")
-            # Return city-specific cabs or default
             for (pickup_key, drop_key), cabs in MOCK_CAB_DB.items():
                 if city in pickup_key and city in drop_key:
                     return SearchResponse(cabs=[
                         IndividualCabResponse(cab_id=cab["cab_id"], cab_type=cab["cab_type"], price=cab["price"]) 
                         for cab in cabs
                     ])
-    
     
     logger.info(f"⚠️ No specific route found, returning default cabs")
     logger.warning(f"Using default pricing - actual price may vary based on distance")
@@ -138,7 +123,6 @@ def add_passenger_details_to_hold(hold_id: str , passenger_name: str , passenger
             }
         }
 
-        
         
         return PassengerDetailsResponse(
             hold_id=hold_id,

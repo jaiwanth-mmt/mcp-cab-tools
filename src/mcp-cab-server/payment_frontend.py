@@ -1,14 +1,9 @@
-"""
-Streamlit Frontend for Cab Booking Payment System
-User-facing payment form for completing mock payments with realistic validation.
-"""
+"""Streamlit Frontend for Cab Booking Payment System"""
 
 import streamlit as st
 import httpx
 from urllib.parse import unquote
 import re
-
-# ==================== CONFIGURATION ====================
 
 st.set_page_config(
     page_title="Cab Booking Payment",
@@ -18,8 +13,6 @@ st.set_page_config(
 )
 
 BACKEND_URL = "http://localhost:8000"
-
-# ==================== STYLING ====================
 
 st.markdown("""
 <style>
@@ -52,16 +45,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== VALIDATION FUNCTIONS ====================
-
 def format_card_number(card_number: str) -> str:
-    """Format card number with spaces every 4 digits"""
     digits = re.sub(r'\D', '', card_number)
     return ' '.join([digits[i:i+4] for i in range(0, len(digits), 4)])
 
 
 def validate_card_number_client(card_number: str) -> tuple[bool, str]:
-    """Client-side card number validation"""
     card_clean = card_number.replace(" ", "").replace("-", "")
     
     if not card_clean:
@@ -77,7 +66,6 @@ def validate_card_number_client(card_number: str) -> tuple[bool, str]:
 
 
 def validate_cvv_client(cvv: str) -> tuple[bool, str]:
-    """Client-side CVV validation"""
     if not cvv:
         return False, "CVV is required"
     
@@ -91,7 +79,6 @@ def validate_cvv_client(cvv: str) -> tuple[bool, str]:
 
 
 def validate_expiry_client(expiry: str) -> tuple[bool, str]:
-    """Client-side expiry validation"""
     if not expiry:
         return False, "Expiry date is required"
     
@@ -118,7 +105,6 @@ def validate_expiry_client(expiry: str) -> tuple[bool, str]:
 
 
 def validate_name_client(name: str) -> tuple[bool, str]:
-    """Client-side name validation"""
     if not name or len(name.strip()) == 0:
         return False, "Cardholder name is required"
     
@@ -128,14 +114,10 @@ def validate_name_client(name: str) -> tuple[bool, str]:
     return True, ""
 
 
-# ==================== MAIN APP ====================
-
 def main():
-    # Header
     st.markdown('<h1 class="main-header">🚕 Secure Payment Gateway</h1>', unsafe_allow_html=True)
     st.markdown("---")
     
-    # Get URL parameters
     query_params = st.query_params
     session_id = query_params.get("session_id", "")
     amount_str = query_params.get("amount", "0")
@@ -143,7 +125,6 @@ def main():
     pickup = unquote(query_params.get("pickup", ""))
     drop = unquote(query_params.get("drop", ""))
     
-    # Validate required parameters
     if not session_id or not hold_id:
         st.error("❌ Invalid payment link - missing required parameters")
         st.info("Please use the payment link provided by the booking system.")
@@ -155,7 +136,6 @@ def main():
         st.error("❌ Invalid amount specified")
         return
     
-    # Check payment status first
     try:
         with httpx.Client(timeout=10.0) as client:
             status_response = client.get(f"{BACKEND_URL}/api/payment/status/{session_id}")
@@ -164,7 +144,6 @@ def main():
                 status_data = status_response.json()
                 
                 if status_data["status"] == "completed":
-                    # Payment already completed
                     st.success("✅ Payment Already Completed!")
                     st.markdown('<div class="success-box">', unsafe_allow_html=True)
                     st.write(f"**Transaction ID:** `{session_id}`")
@@ -178,7 +157,6 @@ def main():
     except Exception as e:
         st.warning(f"Unable to verify payment status: {str(e)}")
     
-    # Fetch hold details
     hold_details = None
     try:
         with httpx.Client(timeout=10.0) as client:
@@ -188,7 +166,6 @@ def main():
     except Exception as e:
         st.warning(f"Unable to fetch booking details: {str(e)}")
     
-    # Display booking summary
     st.subheader("📋 Booking Summary")
     
     col1, col2 = st.columns(2)
@@ -211,9 +188,7 @@ def main():
     st.markdown("---")
     st.subheader("💳 Payment Information")
     
-    # Payment form
     with st.form("payment_form", clear_on_submit=False):
-        # Card number
         card_number = st.text_input(
             "Card Number",
             placeholder="4111 1111 1111 1111",
@@ -221,7 +196,6 @@ def main():
             help="Enter your 16-digit card number"
         )
         
-        # Expiry and CVV
         col1, col2 = st.columns(2)
         with col1:
             expiry = st.text_input(
@@ -239,14 +213,12 @@ def main():
                 help="3 or 4 digit security code"
             )
         
-        # Cardholder name
         cardholder_name = st.text_input(
             "Cardholder Name",
             placeholder="JOHN DOE",
             help="Name as it appears on the card"
         )
         
-        # Submit button
         submit_button = st.form_submit_button(
             "💳 Pay Now",
             use_container_width=True,
@@ -254,7 +226,6 @@ def main():
         )
         
         if submit_button:
-            # Validate inputs
             errors = []
             
             valid, msg = validate_card_number_client(card_number)
@@ -273,19 +244,15 @@ def main():
             if not valid:
                 errors.append(msg)
             
-            # Display errors or process payment
             if errors:
                 st.error("❌ Please fix the following errors:")
                 for error in errors:
                     st.error(f"• {error}")
             else:
-                # Process payment
                 with st.spinner("🔄 Processing payment..."):
                     try:
-                        # Clean card number
                         card_clean = card_number.replace(" ", "").replace("-", "")
                         
-                        # Prepare payload
                         payload = {
                             "session_id": session_id,
                             "card_number": card_clean,
@@ -294,7 +261,6 @@ def main():
                             "cardholder_name": cardholder_name
                         }
                         
-                        # Call backend
                         with httpx.Client(timeout=30.0) as client:
                             response = client.post(
                                 f"{BACKEND_URL}/api/payment/pay",
@@ -328,7 +294,6 @@ def main():
                     except Exception as e:
                         st.error(f"❌ Payment processing error: {str(e)}")
     
-    # Demo information
     st.markdown("---")
     with st.expander("💡 Demo Information & Test Cards"):
         st.markdown("""
@@ -361,8 +326,6 @@ def main():
         st.caption(f"Session ID: {session_id}")
         st.caption(f"Hold ID: {hold_id}")
 
-
-# ==================== RUN APP ====================
 
 if __name__ == "__main__":
     main()
