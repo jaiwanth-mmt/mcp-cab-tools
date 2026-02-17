@@ -1,5 +1,4 @@
 import os
-import logging
 from typing import Optional
 import httpx
 from dotenv import load_dotenv
@@ -8,8 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from models.models import LocationOption, ResolvedLocation
+from services.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, service="geocoding")
 
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
 
@@ -25,14 +25,19 @@ PLACES_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 
 async def geocode_location(query: str) -> list[LocationOption]:
     if not query or not query.strip():
-        logger.warning("Empty query provided to geocode_location")
+        logger.warning("Received empty geocoding query")
         return []
     
     if not GOOGLE_PLACES_API_KEY:
-        logger.error("Cannot geocode location - GOOGLE_PLACES_API_KEY not configured")
+        logger.error("GOOGLE_PLACES_API_KEY not configured")
         raise ValueError("Location service is not configured. Please contact administrator.")
     
     try:
+        logger.debug(
+            "Sending geocoding request to Google Places API",
+            extra={"query": query}
+        )
+        
         params = {
             "input": query,
             "key": GOOGLE_PLACES_API_KEY,
@@ -45,11 +50,17 @@ async def geocode_location(query: str) -> list[LocationOption]:
             data = response.json()
         
         if data.get("status") != "OK":
-            logger.warning(f"Google Places API returned status: {data.get('status')}")
+            logger.warning(
+                "Google Places API returned non-OK status",
+                extra={"status": data.get("status"), "query": query}
+            )
             return []
         
         predictions = data.get("predictions", [])
-        logger.info(f"Found {len(predictions)} location suggestions for query: '{query}'")
+        logger.info(
+            "Geocoding successful",
+            extra={"query": query, "results_count": len(predictions)}
+        )
         
         location_options = []
         for prediction in predictions:
@@ -66,24 +77,40 @@ async def geocode_location(query: str) -> list[LocationOption]:
         return location_options
     
     except httpx.TimeoutException:
-        logger.error(f"Timeout while geocoding location: {query}")
+        logger.error(
+            "Geocoding request timed out",
+            extra={"query": query, "timeout": "10s"}
+        )
         return []
     except httpx.HTTPError as e:
-        logger.error(f"HTTP error while geocoding location: {e}")
+        logger.error(
+            "HTTP error during geocoding",
+            extra={"query": query, "error": str(e)},
+            exc_info=True
+        )
         return []
     except Exception as e:
-        logger.error(f"Unexpected error in geocode_location: {e}")
+        logger.error(
+            "Unexpected error during geocoding",
+            extra={"query": query, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         return []
 
 
 async def resolve_location_by_place_id(place_id: str) -> Optional[ResolvedLocation]:
     if not place_id:
-        logger.warning("Empty place_id provided to resolve_location_by_place_id")
+        logger.warning("Received empty place_id for resolution")
         return None
     if not GOOGLE_PLACES_API_KEY:
-        logger.error("Cannot resolve location - GOOGLE_PLACES_API_KEY not configured")
+        logger.error("GOOGLE_PLACES_API_KEY not configured for location resolution")
         return None
     try:
+        logger.debug(
+            "Resolving location details by place_id",
+            extra={"place_id": place_id}
+        )
+        
         params = {
             "place_id": place_id,
             "key": GOOGLE_PLACES_API_KEY,
@@ -96,7 +123,10 @@ async def resolve_location_by_place_id(place_id: str) -> Optional[ResolvedLocati
             data = response.json()
         
         if data.get("status") != "OK":
-            logger.warning(f"Google Places Details API returned status: {data.get('status')}")
+            logger.warning(
+                "Google Places Details API returned non-OK status",
+                extra={"status": data.get("status"), "place_id": place_id}
+            )
             return None
         
         result = data.get("result", {})
@@ -112,15 +142,33 @@ async def resolve_location_by_place_id(place_id: str) -> Optional[ResolvedLocati
             lng=location.get("lng", 0.0),
         )
         
-        logger.info(f"✅ Resolved location: {resolved_location.name} at ({resolved_location.lat}, {resolved_location.lng})")
+        logger.info(
+            "Location resolved successfully",
+            extra={
+                "place_id": place_id,
+                "location_name": resolved_location.name,  # Changed from 'name' to 'location_name'
+                "coordinates": f"({resolved_location.lat}, {resolved_location.lng})"
+            }
+        )
         return resolved_location
     
     except httpx.TimeoutException:
-        logger.error(f"Timeout while resolving place_id: {place_id}")
+        logger.error(
+            "Location resolution timed out",
+            extra={"place_id": place_id, "timeout": "10s"}
+        )
         return None
     except httpx.HTTPError as e:
-        logger.error(f"HTTP error while resolving place_id: {e}")
+        logger.error(
+            "HTTP error during location resolution",
+            extra={"place_id": place_id, "error": str(e)},
+            exc_info=True
+        )
         return None
     except Exception as e:
-        logger.error(f"Unexpected error in resolve_location_by_place_id: {e}")
+        logger.error(
+            "Unexpected error during location resolution",
+            extra={"place_id": place_id, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         return None

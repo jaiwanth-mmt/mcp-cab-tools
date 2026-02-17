@@ -1,6 +1,6 @@
 from datetime import datetime
 from urllib.parse import quote
-import logging
+from services.logging_config import get_logger
 from models.models import (
     PaymentOrderResponse,
     PaymentVerifyResponse,
@@ -19,7 +19,7 @@ from services.mock_db import (
     is_hold_expired
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, service="payment")
 
 FRONTEND_URL = "http://localhost:8501"
 
@@ -31,19 +31,31 @@ def ensure_isoformat(value) -> str:
 
 
 def create_payment_order_internal(hold_id: str) -> PaymentOrderResponse:
-    logger.info(f"💳 Creating payment order for hold: {hold_id}")
+    logger.info(
+        "Creating payment order",
+        extra={"hold_id": hold_id}
+    )
     
     hold = get_booking_hold(hold_id)
     if not hold:
-        logger.error(f"❌ Hold not found: {hold_id}")
+        logger.error(
+            "Hold not found for payment order",
+            extra={"hold_id": hold_id}
+        )
         raise ValueError(f"Hold not found: {hold_id}")
     
     if is_hold_expired(hold_id):
-        logger.error(f"❌ Hold expired: {hold_id}")
+        logger.error(
+            "Hold expired, cannot create payment order",
+            extra={"hold_id": hold_id, "expires_at": hold.get('expires_at')}
+        )
         raise ValueError(f"Hold has expired")
     
     if hold['status'] not in ['passenger_added', 'payment_pending']:
-        logger.error(f"❌ Hold missing passenger details. Status: {hold['status']}")
+        logger.error(
+            "Hold not ready for payment",
+            extra={"hold_id": hold_id, "status": hold['status']}
+        )
         raise ValueError(
             f"Cannot create payment order. Passenger details must be added first. "
             f"Current status: {hold['status']}"
@@ -53,9 +65,19 @@ def create_payment_order_internal(hold_id: str) -> PaymentOrderResponse:
     
     try:
         payment_session = create_payment_session(hold_id, amount)
-        logger.info(f"✅ Payment session created: {payment_session['session_id']}")
+        logger.info(
+            "Payment session created successfully",
+            extra={
+                "session_id": payment_session['session_id'],
+                "hold_id": hold_id,
+                "amount": amount
+            }
+        )
     except ValueError as e:
-        logger.error(f"❌ Failed to create payment session: {str(e)}")
+        logger.error(
+            "Failed to create payment session",
+            extra={"hold_id": hold_id, "error": str(e)}
+        )
         raise
     
     session_id = payment_session['session_id']
@@ -71,7 +93,10 @@ def create_payment_order_internal(hold_id: str) -> PaymentOrderResponse:
         f"drop={drop_encoded}"
     )
     
-    logger.info(f"🔗 Payment URL generated: {payment_url}")
+    logger.debug(
+        "Payment URL generated",
+        extra={"session_id": session_id, "url_length": len(payment_url)}
+    )
     
     return PaymentOrderResponse(
         session_id=session_id,
@@ -84,11 +109,17 @@ def create_payment_order_internal(hold_id: str) -> PaymentOrderResponse:
 
 
 def get_payment_status_internal(session_id: str) -> PaymentVerifyResponse:
-    logger.info(f"🔍 Checking payment status for session: {session_id}")
+    logger.info(
+        "Checking payment status",
+        extra={"session_id": session_id}
+    )
     
     payment_session = get_payment_session(session_id)
     if not payment_session:
-        logger.error(f"❌ Payment session not found: {session_id}")
+        logger.error(
+            "Payment session not found",
+            extra={"session_id": session_id}
+        )
         raise ValueError(f"Payment session not found: {session_id}")
     
     status_map = {
@@ -98,7 +129,15 @@ def get_payment_status_internal(session_id: str) -> PaymentVerifyResponse:
     }
     status = status_map.get(payment_session['status'], PaymentStatus.PENDING)
     
-    logger.info(f"📊 Payment status: {status}")
+    logger.info(
+        "Payment status retrieved",
+        extra={
+            "session_id": session_id,
+            "status": status.value,
+            "amount": payment_session['amount'],
+            "hold_id": payment_session['hold_id']
+        }
+    )
     
     return PaymentVerifyResponse(
         session_id=session_id,
@@ -112,20 +151,32 @@ def get_payment_status_internal(session_id: str) -> PaymentVerifyResponse:
 
 
 def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
-    logger.info(f"✅ Confirming booking for hold: {hold_id}")
+    logger.info(
+        "Starting booking confirmation",
+        extra={"hold_id": hold_id}
+    )
     
     hold = get_booking_hold(hold_id)
     if not hold:
-        logger.error(f"❌ Hold not found: {hold_id}")
+        logger.error(
+            "Hold not found for confirmation",
+            extra={"hold_id": hold_id}
+        )
         raise ValueError(f"Hold not found: {hold_id}")
     
     if is_hold_expired(hold_id):
-        logger.error(f"❌ Hold expired: {hold_id}")
+        logger.error(
+            "Hold expired, cannot confirm booking",
+            extra={"hold_id": hold_id, "expires_at": hold.get('expires_at')}
+        )
         raise ValueError(f"Hold has expired")
     
     payment = get_payment_by_hold(hold_id)
     if not payment:
-        logger.error(f"❌ No completed payment found for hold: {hold_id}")
+        logger.error(
+            "No payment found for hold",
+            extra={"hold_id": hold_id, "hold_status": hold['status']}
+        )
         raise ValueError(
             f"Payment not completed for this booking. "
             f"Please complete payment before confirming. "
@@ -133,17 +184,31 @@ def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
         )
     if payment['completed_at'] and hold['expires_at']:
         if payment['completed_at'] > hold['expires_at']:
+            logger.error(
+                "Payment completed after hold expiry",
+                extra={
+                    "hold_id": hold_id,
+                    "payment_time": str(payment['completed_at']),
+                    "expiry_time": str(hold['expires_at'])
+                }
+            )
             raise ValueError("Payment was completed after hold expired. Cannot confirm.")
     
     if hold['status'] not in ['payment_success', 'confirmed']:
-        logger.error(f"❌ Invalid hold status for confirmation: {hold['status']}")
+        logger.error(
+            "Invalid hold status for confirmation",
+            extra={"hold_id": hold_id, "status": hold['status']}
+        )
         raise ValueError(
             f"Cannot confirm booking. Current status: {hold['status']}. "
             f"Payment must be completed first."
         )
     
     if hold['status'] == 'confirmed' and 'booking_id' in hold:
-        logger.info(f"ℹ️ Booking already confirmed: {hold['booking_id']}")
+        logger.info(
+            "Booking already confirmed, returning existing details",
+            extra={"hold_id": hold_id, "booking_id": hold['booking_id']}
+        )
         driver = hold.get('driver', {})
         
         return ConfirmBookingResponse(
@@ -157,16 +222,36 @@ def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
     
     try:
         driver = assign_driver_to_booking(hold_id)
-        logger.info(f"🚗 Driver assigned: {driver['name']} ({driver['vehicle_number']})")
+        logger.info(
+            "Driver assigned to booking",
+            extra={
+                "hold_id": hold_id,
+                "driver_name": driver['name'],
+                "vehicle": driver['vehicle_number']
+            }
+        )
     except ValueError as e:
-        logger.error(f"❌ Failed to assign driver: {str(e)}")
+        logger.error(
+            "Failed to assign driver",
+            extra={"hold_id": hold_id, "error": str(e)}
+        )
         raise
     
     try:
         confirmed_hold = confirm_booking_final(hold_id, driver)
-        logger.info(f"🎉 Booking confirmed: {confirmed_hold['booking_id']}")
+        logger.info(
+            "Booking confirmed successfully",
+            extra={
+                "booking_id": confirmed_hold['booking_id'],
+                "hold_id": hold_id,
+                "driver": driver['name']
+            }
+        )
     except ValueError as e:
-        logger.error(f"❌ Failed to confirm booking: {str(e)}")
+        logger.error(
+            "Failed to finalize booking confirmation",
+            extra={"hold_id": hold_id, "error": str(e)}
+        )
         raise
     
     return ConfirmBookingResponse(

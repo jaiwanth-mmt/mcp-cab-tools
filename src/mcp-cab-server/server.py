@@ -2,20 +2,21 @@ from dotenv import load_dotenv
 load_dotenv()
 from fastmcp import FastMCP , Context
 from models.models import  SearchRequest, SearchResponse , HoldCabRequest , HoldCabResponse , PassengerDetailsRequest , PassengerDetailsResponse
-import logging
+from services.logging_config import get_logger, setup_logging
 from services.helper import get_available_cabs
 from services.geocoding import geocode_location , resolve_location_by_place_id
 from services.helper import hold_cab , add_passenger_details_to_hold
 from datetime import datetime , date
 from services.mock_db import cleanup_expired_holds
 import asyncio
+import os
 
 # Load environment variables from .env file
 
-
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup centralized logging - use stderr to keep stdout clean for MCP JSON-RPC
+log_level = os.getenv("LOG_LEVEL", "INFO")
+setup_logging(level=log_level, use_stderr=True)
+logger = get_logger(__name__, service="mcp-cab-server")
 
 mcp = FastMCP("cab-server")
 
@@ -26,22 +27,43 @@ async def get_location_with_disambiguation(
     location_query: str, 
     location_type: str
 ) -> tuple:
-    logger.info(f"📍 Geocoding {location_type} location: {location_query}")
+    logger.info(
+        f"Starting location geocoding",
+        extra={"query": location_query, "type": location_type}
+    )
     results = await geocode_location(location_query)
     
     if not results:
+        logger.warning(
+            f"No geocoding results found",
+            extra={"query": location_query, "type": location_type}
+        )
         return None, f"No locations found for {location_type}: {location_query}"
     
    
     if len(results) == 1:
         loc = results[0]
+        logger.debug(
+            f"Single location match, resolving details",
+            extra={"place_id": loc.place_id, "location_name": loc.name}  # Changed from 'name'
+        )
         location = await resolve_location_by_place_id(loc.place_id)
         if not location:
+            logger.error(
+                f"Failed to resolve location details",
+                extra={"place_id": loc.place_id, "location_name": loc.name}  # Changed from 'name'
+            )
             return None, f"Failed to get details for {location_type}: '{loc.name}'. Please try again."
-        logger.info(f"✅ Single {location_type} location found: {location.name}")
+        logger.info(
+            f"Location resolved successfully",
+            extra={"location_name": location.name, "lat": location.lat, "lng": location.lng}  # Changed from 'name'
+        )
         return location, None
     
-    logger.info(f"Multiple {location_type} locations detected ({len(results)}), requesting user selection")
+    logger.info(
+        f"Multiple locations found, requesting user disambiguation",
+        extra={"count": len(results), "type": location_type}
+    )
     
     options_dict = {
         loc.place_id: {
@@ -62,10 +84,11 @@ async def get_location_with_disambiguation(
     place_id = response.data
     
     if not place_id:
+        logger.warning(f"User did not select any location", extra={"type": location_type})
         return None, f"No {location_type} location selected"
     
     if place_id == "__CUSTOM__":
-        logger.info(f"User requested custom {location_type} location")
+        logger.info(f"User opted for custom location entry", extra={"type": location_type})
         custom_response = await ctx.elicit(
             message=f"📍 Please enter a more specific {location_type} location:\n💡 Tip: Include area, landmark, or sector (e.g., 'Mumbai Airport Terminal 2', 'Noida Sector 62', 'Whitefield ITPL')",
             response_type=str
@@ -73,9 +96,13 @@ async def get_location_with_disambiguation(
         custom_location_query = custom_response.data
         
         if not custom_location_query:
+            logger.warning(f"User provided empty custom location", extra={"type": location_type})
             return None, f"No custom {location_type} location provided"
         
-        logger.info(f"🔍 Re-geocoding with user-specified location: {custom_location_query}")
+        logger.info(
+            f"Retrying geocoding with custom input",
+            extra={"original_query": location_query, "custom_query": custom_location_query}
+        )
         return await get_location_with_disambiguation(
             ctx, 
             custom_location_query,
@@ -84,46 +111,108 @@ async def get_location_with_disambiguation(
     
     location = await resolve_location_by_place_id(place_id)
     if not location:
+        logger.error(
+            f"Failed to resolve selected location",
+            extra={"place_id": place_id, "type": location_type}
+        )
         return None, f"Failed to resolve {location_type} location. Please try a different search."
-    logger.info(f"✅ User selected {location_type}: {location.name}")
+    logger.info(
+        f"User selection resolved successfully",
+        extra={"location_name": location.name, "place_id": place_id}  # Changed from 'name'
+    )
     return location, None
 
 
 
 @mcp.tool(name="Search_cabs" , description="Cabs to search")
 async def search_cabs(ctx:Context , input: SearchRequest)->SearchResponse:
-    logger.info(f"🔍 Cab search request - Pickup: {input.pickup}, Drop: {input.drop}")
+    logger.info(
+        "Cab search request received",
+        extra={"pickup": input.pickup, "drop": input.drop}
+    )
     try:
         pickup_location , pickup_error = await get_location_with_disambiguation(ctx , input.pickup , "pickup")
         if pickup_error:
+            logger.error(
+                "Pickup location resolution failed",
+                extra={"query": input.pickup, "error": pickup_error}
+            )
             await ctx.info(f"❌ {pickup_error}")
             return SearchResponse(cabs = [])
     except ValueError as e:
+        logger.error(
+            "System error during pickup location resolution",
+            extra={"query": input.pickup, "error": str(e)}
+        )
         await ctx.info(f"❌ System error: {str(e)}")
         return SearchResponse(cabs=[])
     try:
         drop_location , drop_error = await get_location_with_disambiguation(ctx , input.drop , "drop")
         if drop_error:
+            logger.error(
+                "Drop location resolution failed",
+                extra={"query": input.drop, "error": drop_error}
+            )
             await ctx.info(f"❌ {drop_error}")
             return SearchResponse(cabs = [])
     except ValueError as e:
+        logger.error(
+            "System error during drop location resolution",
+            extra={"query": input.drop, "error": str(e)}
+        )
         await ctx.info(f"❌ System error: {str(e)}")
         return SearchResponse(cabs=[])
-    logger.info(f"✅ Locations resolved - Pickup: {pickup_location.name}, Drop: {drop_location.name}")
+    
+    logger.info(
+        "Both locations resolved, searching for cabs",
+        extra={
+            "pickup": pickup_location.name,
+            "drop": drop_location.name,
+            "pickup_coords": f"({pickup_location.lat}, {pickup_location.lng})",
+            "drop_coords": f"({drop_location.lat}, {drop_location.lng})"
+        }
+    )
+    
     available_cabs = get_available_cabs(pickup_location.name.lower(), drop_location.name.lower())
+    
     if not available_cabs.cabs:
+        logger.warning(
+            "No cabs available for route",
+            extra={
+                "pickup": pickup_location.name,
+                "drop": drop_location.name
+            }
+        )
         await ctx.info(
             f"⚠️ No cabs available for route:\n"
             f"📍 From: {pickup_location.name}\n"
             f"📍 To: {drop_location.name}\n"
             f"Please try a different route or time."
         )
+    else:
+        logger.info(
+            "Cabs found for route",
+            extra={
+                "count": len(available_cabs.cabs),
+                "types": [cab.cab_type for cab in available_cabs.cabs],
+                "price_range": f"₹{min(cab.price for cab in available_cabs.cabs)}-₹{max(cab.price for cab in available_cabs.cabs)}"
+            }
+        )
+    
     return available_cabs
 
 
 @mcp.tool(name="hold_cab_booking" ,description="Create temporary cab reservation with 15-minute hold")
 async def hold_cab_booking(ctx:Context , input: HoldCabRequest )->HoldCabResponse:
-    logger.info(f"🔒 Hold cab request - Cab ID: {input.cab_id}, Date: {input.departure_date}")
+    logger.info(
+        "Hold cab booking request received",
+        extra={
+            "cab_id": input.cab_id,
+            "pickup": input.pickup,
+            "drop": input.drop,
+            "date": str(input.departure_date)
+        }
+    )
     try:
         # Create the hold
         hold_response = hold_cab(
@@ -133,7 +222,15 @@ async def hold_cab_booking(ctx:Context , input: HoldCabRequest )->HoldCabRespons
             departure_date=input.departure_date.isoformat() if isinstance(input.departure_date, date) else input.departure_date
         )
         
-        logger.info(f"✅ Hold created successfully: {hold_response.hold_id}")
+        logger.info(
+            "Hold created successfully",
+            extra={
+                "hold_id": hold_response.hold_id,
+                "cab_type": hold_response.cab_details['cab_type'],
+                "price": hold_response.price,
+                "expires_at": hold_response.expires_at
+            }
+        )
         await ctx.info(
             f"🎉 Cab Reserved!\n\n"
             f"Hold ID: {hold_response.hold_id}\n"
@@ -144,10 +241,17 @@ async def hold_cab_booking(ctx:Context , input: HoldCabRequest )->HoldCabRespons
         )
         return hold_response
     except ValueError as e:
-        logger.error(f"❌ Hold creation failed: {str(e)}")
+        logger.error(
+            "Hold creation failed - validation error",
+            extra={"cab_id": input.cab_id, "error": str(e)}
+        )
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error during hold creation: {str(e)}")
+        logger.error(
+            "Hold creation failed - unexpected error",
+            extra={"cab_id": input.cab_id, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         raise ValueError(f"Failed to create hold: {str(e)}")
 
 @mcp.tool(
@@ -159,7 +263,15 @@ async def add_passenger_details(
     input: PassengerDetailsRequest
 ) -> PassengerDetailsResponse:
     
-    logger.info(f"👤 Add passenger request - Hold: {input.hold_id}, Name: {input.passenger_name}")
+    logger.info(
+        "Add passenger details request received",
+        extra={
+            "hold_id": input.hold_id,
+            "passenger_name": input.passenger_name,
+            "has_email": bool(input.passenger_email),
+            "has_special_requests": bool(input.special_requests)
+        }
+    )
     
     try:
         # Add passenger details
@@ -171,7 +283,15 @@ async def add_passenger_details(
             special_requests=input.special_requests
         )
         
-        logger.info(f"✅ Passenger details added successfully to hold: {input.hold_id}")
+        logger.info(
+            "Passenger details added successfully",
+            extra={
+                "hold_id": input.hold_id,
+                "passenger_name": input.passenger_name,
+                "passenger_phone": input.passenger_phone,
+                "ready_for_payment": response.ready_for_payment
+            }
+        )
         
         # Show confirmation to user
         email_text = f"\n📧 Email: {response.passenger_email}" if response.passenger_email else ""
@@ -195,10 +315,21 @@ async def add_passenger_details(
         return response
         
     except ValueError as e:
-        logger.error(f"❌ Failed to add passenger details: {str(e)}")
+        logger.error(
+            "Failed to add passenger details - validation error",
+            extra={"hold_id": input.hold_id, "error": str(e)}
+        )
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error: {str(e)}")
+        logger.error(
+            "Failed to add passenger details - unexpected error",
+            extra={
+                "hold_id": input.hold_id,
+                "error": str(e),
+                "error_type": type(e).__name__
+            },
+            exc_info=True
+        )
         raise ValueError(f"Failed to add passenger details: {str(e)}")
 
 
@@ -210,14 +341,24 @@ async def create_payment_order(
     ctx: Context,
     hold_id: str
 ) -> dict:
-    logger.info(f"💳 Payment order creation request for hold: {hold_id}")
+    logger.info(
+        "Payment order creation requested",
+        extra={"hold_id": hold_id}
+    )
     
     try:
         from services.payment import create_payment_order_internal
         
         payment_order = create_payment_order_internal(hold_id)
         
-        logger.info(f"🔗 Prompting user to open payment URL")
+        logger.info(
+            "Payment order created, prompting user",
+            extra={
+                "session_id": payment_order.session_id,
+                "amount": payment_order.amount,
+                "hold_id": hold_id
+            }
+        )
         
         result = await ctx.elicit(
             message=(
@@ -234,6 +375,10 @@ async def create_payment_order(
         )
         
         if result.action == "accept":
+            logger.info(
+                "User accepted payment URL",
+                extra={"session_id": payment_order.session_id}
+            )
             await ctx.info(
                 f"✅ Payment URL provided!\n\n"
                 f"📋 Payment Details:\n"
@@ -247,12 +392,20 @@ async def create_payment_order(
                 f"   3. Use `confirm_booking('{hold_id}')` after payment completes"
             )
         elif result.action == "decline":
+            logger.warning(
+                "User declined payment URL",
+                extra={"session_id": payment_order.session_id}
+            )
             await ctx.info(
                 f"❌ Payment link declined.\n\n"
                 f"Session ID: {payment_order.session_id} (created but not opened)\n"
                 f"You can still open the URL later if needed."
             )
         else:  # cancel
+            logger.warning(
+                "User cancelled payment operation",
+                extra={"session_id": payment_order.session_id}
+            )
             await ctx.info(
                 f"⚠️ Payment operation cancelled.\n\n"
                 f"Session ID: {payment_order.session_id} (created but cancelled)"
@@ -269,11 +422,18 @@ async def create_payment_order(
         }
         
     except ValueError as e:
-        logger.error(f"❌ Payment order creation failed: {str(e)}")
+        logger.error(
+            "Payment order creation failed - validation error",
+            extra={"hold_id": hold_id, "error": str(e)}
+        )
         await ctx.info(f"❌ Error: {str(e)}")
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error: {str(e)}")
+        logger.error(
+            "Payment order creation failed - unexpected error",
+            extra={"hold_id": hold_id, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         await ctx.info(f"❌ Unexpected error: {str(e)}")
         raise ValueError(f"Failed to create payment order: {str(e)}")
 
@@ -286,7 +446,10 @@ async def verify_mock_payment(
     ctx: Context,
     session_id: str
 ) -> dict:
-    logger.info(f"🔍 Payment verification request for session: {session_id}")
+    logger.info(
+        "Payment verification requested",
+        extra={"session_id": session_id}
+    )
     
     try:
         from services.payment import get_payment_status_internal
@@ -294,6 +457,16 @@ async def verify_mock_payment(
         payment_status = get_payment_status_internal(session_id)
         
         status_str = payment_status.status.value
+        
+        logger.info(
+            "Payment status retrieved",
+            extra={
+                "session_id": session_id,
+                "status": status_str,
+                "amount": payment_status.amount,
+                "hold_id": payment_status.hold_id
+            }
+        )
         
         if payment_status.status.value == "completed":
             await ctx.info(
@@ -309,6 +482,10 @@ async def verify_mock_payment(
                 f"💡 Next: Use `confirm_booking('{payment_status.hold_id}')` to finalize booking."
             )
         elif payment_status.status.value == "pending":
+            logger.debug(
+                "Payment still pending",
+                extra={"session_id": session_id}
+            )
             await ctx.info(
                 f"⏳ Payment Pending\n\n"
                 f"📋 Payment Details:\n"
@@ -321,6 +498,10 @@ async def verify_mock_payment(
                 f"The user may still be entering payment details in the browser."
             )
         else:  # failed
+            logger.warning(
+                "Payment failed",
+                extra={"session_id": session_id, "hold_id": payment_status.hold_id}
+            )
             await ctx.info(
                 f"❌ Payment Failed\n\n"
                 f"📋 Payment Details:\n"
@@ -343,11 +524,18 @@ async def verify_mock_payment(
         }
         
     except ValueError as e:
-        logger.error(f"❌ Payment verification failed: {str(e)}")
+        logger.error(
+            "Payment verification failed - validation error",
+            extra={"session_id": session_id, "error": str(e)}
+        )
         await ctx.info(f"❌ Error: {str(e)}")
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error: {str(e)}")
+        logger.error(
+            "Payment verification failed - unexpected error",
+            extra={"session_id": session_id, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         await ctx.info(f"❌ Unexpected error: {str(e)}")
         raise ValueError(f"Failed to verify payment: {str(e)}")
 
@@ -360,7 +548,10 @@ async def confirm_booking(
     ctx: Context,
     hold_id: str
 ) -> dict:
-    logger.info(f"🎉 Booking confirmation request for hold: {hold_id}")
+    logger.info(
+        "Booking confirmation requested",
+        extra={"hold_id": hold_id}
+    )
     
     try:
         from services.payment import confirm_booking_internal
@@ -369,6 +560,17 @@ async def confirm_booking(
         
         driver = confirmation.driver
         summary = confirmation.booking_summary
+        
+        logger.info(
+            "Booking confirmed successfully",
+            extra={
+                "booking_id": confirmation.booking_id,
+                "hold_id": hold_id,
+                "driver_name": driver.name,
+                "driver_phone": driver.phone,
+                "vehicle": driver.vehicle_number
+            }
+        )
         
         await ctx.info(
             f"🎉 Booking Confirmed!\n\n"
@@ -411,11 +613,18 @@ async def confirm_booking(
         }
         
     except ValueError as e:
-        logger.error(f"❌ Booking confirmation failed: {str(e)}")
+        logger.error(
+            "Booking confirmation failed - validation error",
+            extra={"hold_id": hold_id, "error": str(e)}
+        )
         await ctx.info(f"❌ Error: {str(e)}")
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error: {str(e)}")
+        logger.error(
+            "Booking confirmation failed - unexpected error",
+            extra={"hold_id": hold_id, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         await ctx.info(f"❌ Unexpected error: {str(e)}")
         raise ValueError(f"Failed to confirm booking: {str(e)}")
 
