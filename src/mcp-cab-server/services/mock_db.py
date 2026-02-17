@@ -365,6 +365,9 @@ from services.storage import (
     load_payments, save_payments,
     load_passengers, save_passengers
 )
+from services.logging_config import get_logger
+
+logger = get_logger(__name__, service="mock_db")
 
 BOOKING_HOLDS = load_holds()
 HOLD_COUNTER = max([int(h.split('_')[1]) for h in BOOKING_HOLDS.keys()] + [1000])
@@ -387,9 +390,19 @@ def get_cab_by_id(cab_id: str)->dict:
     return None
 
 def create_booking_hold(cab_id:str , pickup:str , drop:str , departure_date:date)->dict:
+    logger.debug(
+        "Creating booking hold",
+        extra={"cab_id": cab_id, "pickup": pickup, "drop": drop}
+    )
+    
     cab_details = get_cab_by_id(cab_id)
     if not cab_details:
+        logger.error(
+            "Cab not found for booking hold",
+            extra={"cab_id": cab_id}
+        )
         return None
+    
     hold_id = generate_hold_id()
     current_time = datetime.now()
     expiry_time = current_time + timedelta(minutes=15)
@@ -408,6 +421,16 @@ def create_booking_hold(cab_id:str , pickup:str , drop:str , departure_date:date
     }
     BOOKING_HOLDS[hold_id] = hold_data
     save_holds(BOOKING_HOLDS)
+    
+    logger.info(
+        "Booking hold created",
+        extra={
+            "hold_id": hold_id,
+            "cab_type": cab_details['cab_type'],
+            "expires_at": str(expiry_time)
+        }
+    )
+    
     return hold_data
 
 def get_booking_hold(hold_id: str)->dict:
@@ -425,6 +448,8 @@ def is_hold_expired(hold_id: str)->bool:
     return False  
 
 def cleanup_expired_holds():
+    logger.debug("Running cleanup for expired holds")
+    
     current_time = datetime.now()
     expired_count = 0
     grace_period = timedelta(hours=1)
@@ -442,6 +467,15 @@ def cleanup_expired_holds():
         if hold_id in PASSENGER_DATA:
             del PASSENGER_DATA[hold_id]
     
+    if expired_count > 0 or len(holds_to_delete) > 0:
+        logger.info(
+            "Cleanup completed",
+            extra={
+                "expired_count": expired_count,
+                "deleted_count": len(holds_to_delete)
+            }
+        )
+    
     return expired_count
 
 
@@ -452,17 +486,34 @@ def add_passenger_to_hold(hold_id: str , passenger_details: dict)->dict:
     BOOKING_HOLDS = load_holds()
     PASSENGER_DATA = load_passengers()
     
+    logger.debug(
+        "Adding passenger to hold",
+        extra={"hold_id": hold_id, "passenger": passenger_details.get('passenger_name')}
+    )
+    
     hold = get_booking_hold(hold_id)
     if not hold:
+        logger.error(
+            "Hold not found when adding passenger",
+            extra={"hold_id": hold_id}
+        )
         raise ValueError(f"Hold not found: {hold_id}")
     current_time = datetime.now()
     if hold['expires_at'] < current_time:
         BOOKING_HOLDS[hold_id]['status'] = 'expired'
         save_holds(BOOKING_HOLDS)
+        logger.error(
+            "Hold expired when adding passenger",
+            extra={"hold_id": hold_id, "expires_at": str(hold['expires_at'])}
+        )
         raise ValueError(f"Hold has expired at {hold['expires_at'].isoformat()}")
     
     
     if hold['status'] not in ['held', 'passenger_added']:
+        logger.error(
+            "Invalid hold status for passenger addition",
+            extra={"hold_id": hold_id, "status": hold['status']}
+        )
         raise ValueError(f"Hold is in invalid state: {hold['status']}")
     
     PASSENGER_DATA[hold_id] = {
@@ -479,6 +530,14 @@ def add_passenger_to_hold(hold_id: str , passenger_details: dict)->dict:
     
     save_holds(BOOKING_HOLDS)
     save_passengers(PASSENGER_DATA)
+    
+    logger.info(
+        "Passenger added to hold successfully",
+        extra={
+            "hold_id": hold_id,
+            "passenger": passenger_details['passenger_name']
+        }
+    )
     
     return BOOKING_HOLDS[hold_id]
 
@@ -503,21 +562,42 @@ def create_payment_session(hold_id: str, amount: float) -> dict:
     BOOKING_HOLDS = load_holds()
     PAYMENT_SESSIONS = load_payments()
     
+    logger.debug(
+        "Creating payment session",
+        extra={"hold_id": hold_id, "amount": amount}
+    )
+    
     for session_id, session in PAYMENT_SESSIONS.items():
         if (session['hold_id'] == hold_id and 
             session['status'] == 'pending' and 
             session['expires_at'] > datetime.now()):
             # Return existing valid session instead of creating new one
+            logger.info(
+                "Reusing existing payment session",
+                extra={"session_id": session_id, "hold_id": hold_id}
+            )
             return session
 
     hold = get_booking_hold(hold_id)
     if not hold:
+        logger.error(
+            "Hold not found for payment session",
+            extra={"hold_id": hold_id}
+        )
         raise ValueError(f"Hold not found: {hold_id}")
     
     if is_hold_expired(hold_id):
+        logger.error(
+            "Hold expired when creating payment session",
+            extra={"hold_id": hold_id}
+        )
         raise ValueError(f"Hold has expired")
     
     if hold['status'] not in ['passenger_added', 'payment_pending']:
+        logger.error(
+            "Invalid hold status for payment session",
+            extra={"hold_id": hold_id, "status": hold['status']}
+        )
         raise ValueError(f"Hold must have passenger details before payment. Current status: {hold['status']}")
     
     session_id = generate_payment_session_id()
@@ -543,6 +623,16 @@ def create_payment_session(hold_id: str, amount: float) -> dict:
     save_payments(PAYMENT_SESSIONS)
     save_holds(BOOKING_HOLDS)
     
+    logger.info(
+        "Payment session created",
+        extra={
+            "session_id": session_id,
+            "hold_id": hold_id,
+            "amount": amount,
+            "expires_at": str(expiry_time)
+        }
+    )
+    
     return payment_data
 
 
@@ -557,17 +647,35 @@ def update_payment_status(session_id: str, status: str, card_last4: str = None) 
     BOOKING_HOLDS = load_holds()
     PAYMENT_SESSIONS = load_payments()
     
+    logger.debug(
+        "Updating payment status",
+        extra={"session_id": session_id, "new_status": status}
+    )
+    
     session = get_payment_session(session_id)
     if not session:
+        logger.error(
+            "Payment session not found for status update",
+            extra={"session_id": session_id}
+        )
         raise ValueError(f"Payment session not found: {session_id}")
     
     if session['status'] == 'completed':
+        logger.warning(
+            "Attempted to update already completed payment",
+            extra={"session_id": session_id}
+        )
         raise ValueError("Payment already completed")
     
     # ✅ IMPROVED: Handle expired session properly
     if session['expires_at'] < datetime.now():
         session['status'] = 'failed'
         hold_id = session['hold_id']
+        
+        logger.error(
+            "Payment session expired",
+            extra={"session_id": session_id, "hold_id": hold_id}
+        )
         
         # ✅ ALLOW USER TO TRY PAYMENT AGAIN by reverting to passenger_added
         if hold_id in BOOKING_HOLDS:
@@ -587,10 +695,22 @@ def update_payment_status(session_id: str, status: str, card_last4: str = None) 
     if hold_id in BOOKING_HOLDS:
         if status == 'completed':
             BOOKING_HOLDS[hold_id]['status'] = 'payment_success'
+            logger.info(
+                "Payment completed successfully",
+                extra={
+                    "session_id": session_id,
+                    "hold_id": hold_id,
+                    "amount": session['amount']
+                }
+            )
         elif status == 'failed':
             # ✅ IMPROVED: Revert to passenger_added instead of payment_pending
             # This allows users to create a new payment session and try again
             BOOKING_HOLDS[hold_id]['status'] = 'passenger_added'
+            logger.warning(
+                "Payment failed",
+                extra={"session_id": session_id, "hold_id": hold_id}
+            )
         BOOKING_HOLDS[hold_id]['updated_at'] = current_time
     
     save_payments(PAYMENT_SESSIONS)
@@ -692,14 +812,37 @@ def generate_booking_id() -> str:
 
 
 def assign_driver_to_booking(hold_id: str) -> dict:
+    logger.debug(
+        "Assigning driver to booking",
+        extra={"hold_id": hold_id}
+    )
+    
     hold = get_booking_hold(hold_id)
     if not hold:
+        logger.error(
+            "Hold not found for driver assignment",
+            extra={"hold_id": hold_id}
+        )
         raise ValueError(f"Hold not found: {hold_id}")
     
     if hold['status'] != 'payment_success':
+        logger.error(
+            "Invalid hold status for driver assignment",
+            extra={"hold_id": hold_id, "status": hold['status']}
+        )
         raise ValueError(f"Payment not completed for this hold. Current status: {hold['status']}")
     
     driver = random.choice(MOCK_DRIVERS)
+    
+    logger.info(
+        "Driver assigned to booking",
+        extra={
+            "hold_id": hold_id,
+            "driver_name": driver['name'],
+            "vehicle": driver['vehicle_number']
+        }
+    )
+    
     return driver.copy()
 
 
@@ -707,11 +850,24 @@ def confirm_booking_final(hold_id: str, driver: dict) -> dict:
     global BOOKING_HOLDS
     BOOKING_HOLDS = load_holds()
     
+    logger.debug(
+        "Finalizing booking confirmation",
+        extra={"hold_id": hold_id, "driver": driver['name']}
+    )
+    
     hold = get_booking_hold(hold_id)
     if not hold:
+        logger.error(
+            "Hold not found for booking confirmation",
+            extra={"hold_id": hold_id}
+        )
         raise ValueError(f"Hold not found: {hold_id}")
     
     if hold['status'] != 'payment_success':
+        logger.error(
+            "Invalid hold status for booking confirmation",
+            extra={"hold_id": hold_id, "status": hold['status']}
+        )
         raise ValueError(f"Cannot confirm booking. Payment not completed. Status: {hold['status']}")
     
     booking_id = generate_booking_id()
@@ -724,5 +880,14 @@ def confirm_booking_final(hold_id: str, driver: dict) -> dict:
     BOOKING_HOLDS[hold_id]['updated_at'] = current_time
     
     save_holds(BOOKING_HOLDS)
+    
+    logger.info(
+        "Booking confirmed successfully",
+        extra={
+            "booking_id": booking_id,
+            "hold_id": hold_id,
+            "driver": driver['name']
+        }
+    )
     
     return BOOKING_HOLDS[hold_id]

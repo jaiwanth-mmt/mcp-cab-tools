@@ -12,7 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Literal, Optional
-import logging
 
 # Import local modules
 from models.models import (
@@ -28,9 +27,11 @@ from services.mock_db import (
     is_hold_expired
 )
 from services.card_validator import validate_card
+from services.logging_config import get_logger, setup_logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup logging
+setup_logging(level=os.getenv("LOG_LEVEL", "INFO"), use_stderr=True)
+logger = get_logger(__name__, service="payment-backend")
 
 app = FastAPI(
     title="Cab Booking Payment Backend",
@@ -90,20 +91,32 @@ def root():
 
 @app.post("/api/payment/initiate", response_model=PaymentInitiateResponse)
 def initiate_payment(request: PaymentInitiateRequest):
-    logger.info(f"💳 Payment initiation request for hold: {request.hold_id}")
+    logger.info(
+        "Payment initiation request",
+        extra={"hold_id": request.hold_id}
+    )
     
     try:
         hold = get_booking_hold(request.hold_id)
         if not hold:
-            logger.error(f"❌ Hold not found: {request.hold_id}")
+            logger.error(
+                "Hold not found",
+                extra={"hold_id": request.hold_id}
+            )
             raise HTTPException(status_code=404, detail=f"Hold not found: {request.hold_id}")
         
         if is_hold_expired(request.hold_id):
-            logger.error(f"❌ Hold expired: {request.hold_id}")
+            logger.error(
+                "Hold expired",
+                extra={"hold_id": request.hold_id, "expires_at": hold.get('expires_at')}
+            )
             raise HTTPException(status_code=400, detail="Hold has expired")
         
         if hold['status'] not in ['passenger_added', 'payment_pending', 'payment_success']:
-            logger.error(f"❌ Invalid hold status: {hold['status']}")
+            logger.error(
+                "Invalid hold status for payment",
+                extra={"hold_id": request.hold_id, "status": hold['status']}
+            )
             raise HTTPException(
                 status_code=400,
                 detail=f"Passenger details must be added before payment. Current status: {hold['status']}"
@@ -112,7 +125,14 @@ def initiate_payment(request: PaymentInitiateRequest):
         amount = float(hold['price'])
         
         payment_session = create_payment_session(request.hold_id, amount)
-        logger.info(f"✅ Payment session created: {payment_session['session_id']}")
+        logger.info(
+            "Payment session created",
+            extra={
+                "session_id": payment_session['session_id'],
+                "hold_id": request.hold_id,
+                "amount": amount
+            }
+        )
         
         return PaymentInitiateResponse(
             session_id=payment_session['session_id'],
@@ -122,30 +142,54 @@ def initiate_payment(request: PaymentInitiateRequest):
         )
         
     except ValueError as e:
-        logger.error(f"❌ Validation error: {str(e)}")
+        logger.error(
+            "Payment initiation validation error",
+            extra={"hold_id": request.hold_id, "error": str(e)}
+        )
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"❌ Unexpected error: {str(e)}")
+        logger.error(
+            "Unexpected error during payment initiation",
+            extra={"hold_id": request.hold_id, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/api/payment/pay", response_model=PaymentProcessResponse)
 def process_payment(request: PaymentProcessRequest):
-    logger.info(f"💳 Payment processing request for session: {request.session_id}")
+    logger.info(
+        "Payment processing request",
+        extra={"session_id": request.session_id}
+    )
     
     try:
         session = get_payment_session(request.session_id)
         if not session:
-            logger.error(f"❌ Payment session not found: {request.session_id}")
+            logger.error(
+                "Payment session not found",
+                extra={"session_id": request.session_id}
+            )
             raise HTTPException(status_code=404, detail="Payment session not found")
         
         if session['status'] == 'completed':
-            logger.warning(f"⚠️ Payment already completed: {request.session_id}")
+            logger.warning(
+                "Payment already completed",
+                extra={"session_id": request.session_id}
+            )
             raise HTTPException(status_code=400, detail="Payment already completed")
         
         if session['expires_at'] < datetime.now():
-            logger.error(f"❌ Payment session expired: {request.session_id}")
+            logger.error(
+                "Payment session expired",
+                extra={"session_id": request.session_id, "expires_at": session['expires_at']}
+            )
             raise HTTPException(status_code=400, detail="Payment session has expired")
+        
+        logger.debug(
+            "Validating card details",
+            extra={"session_id": request.session_id, "cardholder": request.cardholder_name}
+        )
         
         card_valid, error_message = validate_card(
             request.card_number,
@@ -155,14 +199,24 @@ def process_payment(request: PaymentProcessRequest):
         )
         
         if not card_valid:
-            logger.error(f"❌ Card validation failed: {error_message}")
+            logger.error(
+                "Card validation failed",
+                extra={"session_id": request.session_id, "error": error_message}
+            )
             raise HTTPException(status_code=400, detail=error_message)
         
         card_clean = request.card_number.replace(" ", "").replace("-", "")
         card_last4 = card_clean[-4:]
         
         updated_session = update_payment_status(request.session_id, 'completed', card_last4)
-        logger.info(f"✅ Payment completed successfully: {request.session_id}")
+        logger.info(
+            "Payment completed successfully",
+            extra={
+                "session_id": request.session_id,
+                "amount": session['amount'],
+                "card_last4": card_last4
+            }
+        )
         
         return PaymentProcessResponse(
             success=True,
@@ -174,22 +228,40 @@ def process_payment(request: PaymentProcessRequest):
     except HTTPException:
         raise
     except ValueError as e:
-        logger.error(f"❌ Validation error: {str(e)}")
+        logger.error(
+            "Payment processing validation error",
+            extra={"session_id": request.session_id, "error": str(e)}
+        )
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"❌ Unexpected error: {str(e)}")
+        logger.error(
+            "Unexpected error during payment processing",
+            extra={"session_id": request.session_id, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/payment/status/{session_id}", response_model=PaymentStatusResponse)
 def get_payment_status(session_id: str):
-    logger.info(f"🔍 Payment status request for session: {session_id}")
+    logger.info(
+        "Payment status request",
+        extra={"session_id": session_id}
+    )
     
     try:
         session = get_payment_session(session_id)
         if not session:
-            logger.error(f"❌ Payment session not found: {session_id}")
+            logger.error(
+                "Payment session not found",
+                extra={"session_id": session_id}
+            )
             raise HTTPException(status_code=404, detail="Payment session not found")
+        
+        logger.debug(
+            "Payment status retrieved",
+            extra={"session_id": session_id, "status": session['status']}
+        )
         
         return PaymentStatusResponse(
             session_id=session_id,
@@ -204,21 +276,36 @@ def get_payment_status(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error: {str(e)}")
+        logger.error(
+            "Unexpected error retrieving payment status",
+            extra={"session_id": session_id, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/hold/{hold_id}", response_model=HoldDetailsResponse)
 def get_hold_details(hold_id: str):
-    logger.info(f"📋 Hold details request for: {hold_id}")
+    logger.info(
+        "Hold details request",
+        extra={"hold_id": hold_id}
+    )
     
     try:
         hold = get_booking_hold(hold_id)
         if not hold:
-            logger.error(f"❌ Hold not found: {hold_id}")
+            logger.error(
+                "Hold not found",
+                extra={"hold_id": hold_id}
+            )
             raise HTTPException(status_code=404, detail="Hold not found")
         
         passenger_details = hold.get('passenger_details', {})
+        
+        logger.debug(
+            "Hold details retrieved",
+            extra={"hold_id": hold_id, "status": hold.get('status')}
+        )
         
         return HoldDetailsResponse(
             hold_id=hold['hold_id'],
@@ -233,7 +320,11 @@ def get_hold_details(hold_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error: {str(e)}")
+        logger.error(
+            "Unexpected error retrieving hold details",
+            extra={"hold_id": hold_id, "error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
