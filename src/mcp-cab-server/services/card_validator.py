@@ -92,6 +92,9 @@ def validate_cvv(cvv: str, card_type: str) -> Tuple[bool, str]:
     if card_type == "amex":
         if len(cvv) != 4:
             return False, "American Express CVV must be 4 digits"
+    elif card_type == "unknown":
+        if len(cvv) < 3 or len(cvv) > 4:
+            return False, "CVV must be 3 or 4 digits"
     else:
         if len(cvv) != 3:
             return False, "CVV must be 3 digits"

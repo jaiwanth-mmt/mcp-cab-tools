@@ -4,7 +4,7 @@ import streamlit as st
 import httpx
 from urllib.parse import unquote
 import re
-
+from datetime import datetime 
 st.set_page_config(
     page_title="Cab Booking Payment",
     page_icon="🚕",
@@ -147,13 +147,19 @@ def main():
                     st.success("✅ Payment Already Completed!")
                     st.markdown('<div class="success-box">', unsafe_allow_html=True)
                     st.write(f"**Transaction ID:** `{session_id}`")
-                    st.write(f"**Amount Paid:** ₹{amount:.2f}")
+                    st.write(f"**Amount Paid:** ₹{status_data['amount']:.2f}")
                     if status_data.get("card_last4"):
                         st.write(f"**Card Used:** •••• {status_data['card_last4']}")
                     st.write(f"**Completed At:** {status_data.get('completed_at', 'N/A')}")
                     st.markdown('</div>', unsafe_allow_html=True)
                     st.info("You can now close this window and confirm your booking.")
                     return
+                if status_data.get("expires_at"):
+                    expiry_time = datetime.fromisoformat(status_data["expires_at"])
+                    if expiry_time < datetime.now():
+                        st.error("❌ Payment Session Expired")
+                        st.info("This payment link has expired. Please request a new payment link.")
+                        return
     except Exception as e:
         st.warning(f"Unable to verify payment status: {str(e)}")
     

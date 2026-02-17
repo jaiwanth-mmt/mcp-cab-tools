@@ -131,6 +131,9 @@ def confirm_booking_internal(hold_id: str) -> ConfirmBookingResponse:
             f"Please complete payment before confirming. "
             f"Current status: {hold['status']}"
         )
+    if payment['completed_at'] and hold['expires_at']:
+        if payment['completed_at'] > hold['expires_at']:
+            raise ValueError("Payment was completed after hold expired. Cannot confirm.")
     
     if hold['status'] not in ['payment_success', 'confirmed']:
         logger.error(f"❌ Invalid hold status for confirmation: {hold['status']}")

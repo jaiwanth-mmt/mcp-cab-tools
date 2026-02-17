@@ -503,6 +503,13 @@ def create_payment_session(hold_id: str, amount: float) -> dict:
     BOOKING_HOLDS = load_holds()
     PAYMENT_SESSIONS = load_payments()
     
+    for session_id, session in PAYMENT_SESSIONS.items():
+        if (session['hold_id'] == hold_id and 
+            session['status'] == 'pending' and 
+            session['expires_at'] > datetime.now()):
+            # Return existing valid session instead of creating new one
+            return session
+
     hold = get_booking_hold(hold_id)
     if not hold:
         raise ValueError(f"Hold not found: {hold_id}")
@@ -557,9 +564,18 @@ def update_payment_status(session_id: str, status: str, card_last4: str = None) 
     if session['status'] == 'completed':
         raise ValueError("Payment already completed")
     
+    # ✅ IMPROVED: Handle expired session properly
     if session['expires_at'] < datetime.now():
         session['status'] = 'failed'
+        hold_id = session['hold_id']
+        
+        # ✅ ALLOW USER TO TRY PAYMENT AGAIN by reverting to passenger_added
+        if hold_id in BOOKING_HOLDS:
+            BOOKING_HOLDS[hold_id]['status'] = 'passenger_added'
+            BOOKING_HOLDS[hold_id]['updated_at'] = datetime.now()
+        
         save_payments(PAYMENT_SESSIONS)
+        save_holds(BOOKING_HOLDS)
         raise ValueError("Payment session has expired")
     
     current_time = datetime.now()
@@ -572,7 +588,9 @@ def update_payment_status(session_id: str, status: str, card_last4: str = None) 
         if status == 'completed':
             BOOKING_HOLDS[hold_id]['status'] = 'payment_success'
         elif status == 'failed':
-            BOOKING_HOLDS[hold_id]['status'] = 'payment_pending'
+            # ✅ IMPROVED: Revert to passenger_added instead of payment_pending
+            # This allows users to create a new payment session and try again
+            BOOKING_HOLDS[hold_id]['status'] = 'passenger_added'
         BOOKING_HOLDS[hold_id]['updated_at'] = current_time
     
     save_payments(PAYMENT_SESSIONS)
@@ -582,6 +600,9 @@ def update_payment_status(session_id: str, status: str, card_last4: str = None) 
 
 
 def get_payment_by_hold(hold_id: str) -> dict:
+    global PAYMENT_SESSIONS
+    PAYMENT_SESSIONS = load_payments()  # ✅ RELOAD DATA
+    
     for session in PAYMENT_SESSIONS.values():
         if session['hold_id'] == hold_id and session['status'] == 'completed':
             return session
